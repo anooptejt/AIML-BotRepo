@@ -22,6 +22,7 @@ AIML-BotRepo
 - [ ] Add support for ArgoCD, Argo Workflows, and Argo Rollouts
 - [ ] Add support for Terraform job generation and analysis
 - [ ] Add support for Ansible playbook generation and analysis
+- [ ] Integrate a pre-trained model (e.g., Google Gemini) that provides accurate results for user input
 
 ### Advanced/Complex Tasks
 - [ ] Implement DevOps/DecSecOps process guidance and best practices
