@@ -23,6 +23,7 @@ AIML-BotRepo
 - [ ] Add support for Terraform job generation and analysis
 - [ ] Add support for Ansible playbook generation and analysis
 - [ ] Integrate a pre-trained model (e.g., Google Gemini) that provides accurate results for user input
+- [ ] Integrate Pinecone Vector DB (free tier) for storing and retrieving relevant information
 
 ### Advanced/Complex Tasks
 - [ ] Implement DevOps/DecSecOps process guidance and best practices
