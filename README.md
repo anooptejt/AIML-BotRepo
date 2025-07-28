@@ -15,6 +15,7 @@ AIML-BotRepo
 - [ ] Implement basic chat UI for user interaction
 - [ ] Add GitHub authentication (OAuth) for user login
 - [ ] Integrate Gemini or LLM for basic code generation (e.g., shell scripts)
+- [ ] Implement token tracking system for input/output tokens display in UI
 
 ### Sprint 2: Core Features (August 26th - September 2nd)
 **Goal:** Implement essential features for code analysis and visualization
@@ -50,6 +51,7 @@ AIML-BotRepo
 - [ ] Integrate Gemini or LLM for basic code generation (e.g., shell scripts)
 - [ ] Implement code parsing for open-source projects (basic file upload and analysis)
 - [ ] Add diagram/visual workflow generation using Mermaid.js or similar
+- [ ] Implement token tracking system for input/output tokens display in UI
 
 ### Intermediate Tasks
 - [ ] Add support for Jenkins pipeline generation and management
