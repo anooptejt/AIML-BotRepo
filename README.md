@@ -20,7 +20,7 @@ AIML-BotRepo
 ### Sprint 2: Core Features (August 26th - September 2nd)
 **Goal:** Implement essential features for code analysis and visualization
 - [ ] Implement code parsing for open-source projects (basic file upload and analysis)
-- [x] Add diagram/visual workflow generation using Mermaid.js or similar
+- [ ] Add diagram/visual workflow generation using Mermaid.js or similar
 - [ ] Integrate Pinecone Vector DB (free tier) for storing and retrieving relevant information
 
 ### Sprint 3: DevOps Tools Integration (September 3rd - September 10th)
@@ -50,7 +50,7 @@ AIML-BotRepo
 - [ ] Add GitHub authentication (OAuth) for user login
 - [x] Integrate Gemini or LLM for basic code generation (e.g., shell scripts)
 - [ ] Implement code parsing for open-source projects (basic file upload and analysis)
-- [x] Add diagram/visual workflow generation using Mermaid.js or similar
+- [ ] Add diagram/visual workflow generation using Mermaid.js or similar
 - [x] Implement token tracking system for input/output tokens display in UI
 
 ### Intermediate Tasks
