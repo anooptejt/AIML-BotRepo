@@ -2,25 +2,25 @@
 AIML-BotRepo
 
 ## ToDo List for Tomorrow
-- [ ] Create Simple UI
-- [ ] Create Simple Backend
+- [x] Create Simple UI
+- [x] Create Simple Backend
 - [ ] Github Authentication
-- [ ] With Gemini Chat Model
+- [x] With Gemini Chat Model
 
 ## Sprint Planning (August 18th - September 30th)
 
 ### Sprint 1: Foundation (August 18th - August 25th)
 **Goal:** Set up basic project structure and core functionality
-- [ ] Set up project structure (frontend and backend directories)
-- [ ] Implement basic chat UI for user interaction
+- [x] Set up project structure (frontend and backend directories)
+- [x] Implement basic chat UI for user interaction
 - [ ] Add GitHub authentication (OAuth) for user login
-- [ ] Integrate Gemini or LLM for basic code generation (e.g., shell scripts)
-- [ ] Implement token tracking system for input/output tokens display in UI
+- [x] Integrate Gemini or LLM for basic code generation (e.g., shell scripts)
+- [x] Implement token tracking system for input/output tokens display in UI
 
 ### Sprint 2: Core Features (August 26th - September 2nd)
 **Goal:** Implement essential features for code analysis and visualization
 - [ ] Implement code parsing for open-source projects (basic file upload and analysis)
-- [ ] Add diagram/visual workflow generation using Mermaid.js or similar
+- [x] Add diagram/visual workflow generation using Mermaid.js or similar
 - [ ] Integrate Pinecone Vector DB (free tier) for storing and retrieving relevant information
 
 ### Sprint 3: DevOps Tools Integration (September 3rd - September 10th)
@@ -45,13 +45,13 @@ AIML-BotRepo
 ## Detailed ToDo List (Prioritized)
 
 ### Immediate/Easier Tasks
-- [ ] Set up project structure (frontend and backend directories)
-- [ ] Implement basic chat UI for user interaction
+- [x] Set up project structure (frontend and backend directories)
+- [x] Implement basic chat UI for user interaction
 - [ ] Add GitHub authentication (OAuth) for user login
-- [ ] Integrate Gemini or LLM for basic code generation (e.g., shell scripts)
+- [x] Integrate Gemini or LLM for basic code generation (e.g., shell scripts)
 - [ ] Implement code parsing for open-source projects (basic file upload and analysis)
-- [ ] Add diagram/visual workflow generation using Mermaid.js or similar
-- [ ] Implement token tracking system for input/output tokens display in UI
+- [x] Add diagram/visual workflow generation using Mermaid.js or similar
+- [x] Implement token tracking system for input/output tokens display in UI
 
 ### Intermediate Tasks
 - [ ] Add support for Jenkins pipeline generation and management
@@ -76,9 +76,11 @@ Prereqs: Node 18+.
 ```
 GEMINI_API_KEY=YOUR_KEY
 NEXTAUTH_SECRET=some-random-string
-GITHUB_CLIENT_ID=your_github_oauth_client_id
-GITHUB_CLIENT_SECRET=your_github_oauth_client_secret
 NEXTAUTH_URL=http://localhost:3000
+LOCAL_USERNAME=anoop@opsmx.io
+# Use either LOCAL_PASSWORD_HASH (bcrypt) or LOCAL_PASSWORD (dev only)
+LOCAL_PASSWORD_HASH=<bcrypt-hash>
+# LOCAL_PASSWORD=<plaintext-dev-only>
 ```
 
 2. Install & run:
