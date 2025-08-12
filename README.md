@@ -65,3 +65,48 @@ AIML-BotRepo
 - [ ] Implement DevOps/DecSecOps process guidance and best practices
 - [ ] Test with real-world open-source projects for feedback and improvement
 - [ ] Polish UI/UX and add user documentation
+
+---
+
+## Web App (Next.js) — Quick Start
+
+Prereqs: Node 18+.
+
+1. Set env vars in `web/.env.local`:
+```
+GEMINI_API_KEY=YOUR_KEY
+NEXTAUTH_SECRET=some-random-string
+GITHUB_CLIENT_ID=your_github_oauth_client_id
+GITHUB_CLIENT_SECRET=your_github_oauth_client_secret
+NEXTAUTH_URL=http://localhost:3000
+```
+
+2. Install & run:
+```
+cd web
+npm install
+npm run dev
+```
+Visit `http://localhost:3000/chat`.
+
+### Production build
+```
+cd web
+npm run build
+npm run start
+```
+
+### Keep it running with pm2
+```
+npm install -g pm2
+cd web
+npm run build
+pm2 start "npm run start" --name devops-chat --cwd "$(pwd)"
+pm2 save
+pm2 startup   # follow instructions printed
+```
+
+### Notes
+- Scope guardrails restrict the bot to DevOps/CI/CD topics (Terraform, Ansible, Jenkins, Spinnaker, Argo, DecSecOps, Shell).
+- The `/api/chat` endpoint returns token counts and handles blocked/empty responses gracefully.
+- Do not commit secrets. `.env.local` is ignored by git.

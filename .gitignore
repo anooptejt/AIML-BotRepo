@@ -1,1 +1,10 @@
 **/.ipynb_checkpoints/
+# Env files (never commit secrets)
+**/.env
+**/.env.*
+!**/.env.local.example
+
+# Next.js build artifacts
+web/.next/
+web/node_modules/
+web/out/
