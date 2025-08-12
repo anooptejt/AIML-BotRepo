@@ -41,6 +41,7 @@ export default function ChatPage() {
   }
 
   async function send() {
+    if (!message.trim()) return;
     setAnswer("");
     const res = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message }) });
     const data = await res.json();
@@ -63,12 +64,12 @@ export default function ChatPage() {
       <main className="p-6 max-w-xl mx-auto">
         <h1 className="text-2xl font-semibold mb-2">Sign in</h1>
         <p className="mb-4 text-gray-600">Use the configured demo credentials.</p>
-        <div className="flex flex-col gap-2 w-full">
+        <form className="flex flex-col gap-2 w-full" onSubmit={(e) => { e.preventDefault(); doLogin(); }}>
           <input className="border rounded px-3 py-2" placeholder="Username" value={username} onChange={(e) => setUsername(e.target.value)} />
           <input className="border rounded px-3 py-2" placeholder="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
           {loginError && <div className="text-red-600 text-sm">{loginError}</div>}
-          <button className="bg-black text-white px-4 py-2 rounded" onClick={doLogin}>Sign in</button>
-        </div>
+          <button type="submit" className="bg-black text-white px-4 py-2 rounded">Sign in</button>
+        </form>
       </main>
     );
   }
@@ -79,20 +80,20 @@ export default function ChatPage() {
         <h1 className="text-2xl font-semibold">DevOps Chat</h1>
         <div className="text-sm text-gray-600 flex items-center gap-3">
           <span>{session.user?.email || session.user?.name}</span>
-          <button className="underline" onClick={() => signOut()}>Sign out</button>
+          <button className="underline" onClick={() => signOut({ callbackUrl: "/chat" })}>Sign out</button>
         </div>
       </div>
-      <div className="flex gap-2 mb-4">
+      <form className="flex gap-2 mb-4" onSubmit={(e) => { e.preventDefault(); send(); }}>
         <input
           className="flex-1 border rounded px-3 py-2"
           placeholder="Ask about Jenkins/Terraform/Argo..."
           value={message}
           onChange={(e) => setMessage(e.target.value)}
         />
-        <button className="bg-black text-white px-4 py-2 rounded" onClick={send}>
+        <button type="submit" className="bg-black text-white px-4 py-2 rounded">
           Send
         </button>
-      </div>
+      </form>
       {tokens && (
         <div className="text-sm text-gray-600 mb-2">Tokens: in {tokens.input} / out {tokens.output} / total {tokens.total}</div>
       )}
