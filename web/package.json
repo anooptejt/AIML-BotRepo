@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
+    "bcryptjs": "^3.0.2",
     "dompurify": "^3.2.6",
     "jsdom": "^26.1.0",
     "mermaid": "^11.9.0",

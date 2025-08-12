@@ -29,6 +29,17 @@ export default function ChatPage() {
   const [answer, setAnswer] = useState("");
   const [tokens, setTokens] = useState<{ input: number; output: number; total: number } | null>(null);
 
+  // Local login form state
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [loginError, setLoginError] = useState<string | null>(null);
+
+  async function doLogin() {
+    setLoginError(null);
+    const res = await signIn("credentials", { username, password, redirect: false });
+    if (res?.error) setLoginError("Invalid credentials");
+  }
+
   async function send() {
     setAnswer("");
     const res = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message }) });
@@ -50,9 +61,14 @@ export default function ChatPage() {
   if (!session) {
     return (
       <main className="p-6 max-w-xl mx-auto">
-        <h1 className="text-2xl font-semibold mb-2">Sign in required</h1>
-        <p className="mb-4 text-gray-600">Please sign in with GitHub to use the chat.</p>
-        <button className="bg-black text-white px-4 py-2 rounded" onClick={() => signIn("github")}>Sign in with GitHub</button>
+        <h1 className="text-2xl font-semibold mb-2">Sign in</h1>
+        <p className="mb-4 text-gray-600">Use the configured demo credentials.</p>
+        <div className="flex flex-col gap-2 w-full">
+          <input className="border rounded px-3 py-2" placeholder="Username" value={username} onChange={(e) => setUsername(e.target.value)} />
+          <input className="border rounded px-3 py-2" placeholder="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+          {loginError && <div className="text-red-600 text-sm">{loginError}</div>}
+          <button className="bg-black text-white px-4 py-2 rounded" onClick={doLogin}>Sign in</button>
+        </div>
       </main>
     );
   }
