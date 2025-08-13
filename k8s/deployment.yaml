@@ -18,6 +18,8 @@ spec:
         - name: web
           image: devops-chat:latest
           imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
           ports:
             - containerPort: 3000
           env:
