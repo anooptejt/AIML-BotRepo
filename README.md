@@ -33,7 +33,7 @@ ShipSense – AI DevOps assistant (CI/CD, diagrams, vector search)
 **Goal:** Implement advanced DevOps features and Argo ecosystem
 - [ ] Add support for ArgoCD, Argo Workflows, and Argo Rollouts
 - [ ] Integrate a pre-trained model (e.g., Google Gemini) that provides accurate results for user input
-- [ ] Implement DevOps/DecSecOps process guidance and best practices
+- [ ] Implement DevOps/DevSecOps process guidance and best practices
 
 ### Sprint 5: Testing & Polish (September 19th - September 30th)
 **Goal:** Final testing, optimization, and documentation
@@ -62,7 +62,7 @@ ShipSense – AI DevOps assistant (CI/CD, diagrams, vector search)
 - [x] Integrate Pinecone Vector DB (free tier) for storing and retrieving relevant information
 
 ### Advanced/Complex Tasks
-- [ ] Implement DevOps/DecSecOps process guidance and best practices
+- [ ] Implement DevOps/DevSecOps process guidance and best practices
 - [ ] Test with real-world open-source projects for feedback and improvement
 - [ ] Polish UI/UX and add user documentation
 
