@@ -63,6 +63,9 @@ ShipSense – AI DevOps assistant (CI/CD, diagrams, vector search)
 
 ### Advanced/Complex Tasks
 - [ ] Implement DevOps/DevSecOps process guidance and best practices
+- [ ] Kubernetes troubleshooting & recommendations
+- [ ] OpenShift troubleshooting & recommendations
+- [ ] AWS troubleshooting & recommendations
 - [ ] Test with real-world open-source projects for feedback and improvement
 - [ ] Polish UI/UX and add user documentation
 
