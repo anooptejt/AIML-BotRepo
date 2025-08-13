@@ -108,7 +108,28 @@ pm2 save
 pm2 startup   # follow instructions printed
 ```
 
-### Notes
-- Scope guardrails restrict the bot to DevOps/CI/CD topics (Terraform, Ansible, Jenkins, Spinnaker, Argo, DecSecOps, Shell).
-- The `/api/chat` endpoint returns token counts and handles blocked/empty responses gracefully.
-- Do not commit secrets. `.env.local` is ignored by git.
+### Container build (Docker)
+```
+cd web
+docker build -t devops-chat:latest .
+# run locally
+docker run --rm -p 3000:3000 \
+  -e GEMINI_API_KEY=$GEMINI_API_KEY \
+  -e NEXTAUTH_SECRET=$NEXTAUTH_SECRET \
+  -e NEXTAUTH_URL=http://localhost:3000 \
+  -e LOCAL_USERNAME=anoop@opsmx.io \
+  -e LOCAL_PASSWORD_HASH=$LOCAL_PASSWORD_HASH \
+  devops-chat:latest
+```
+
+### Kubernetes
+```
+# Edit k8s/config.yaml to set NEXTAUTH_URL, LOCAL_USERNAME
+# Put secrets in k8s/config.yaml (stringData) or create a separate Secret
+kubectl apply -f k8s/config.yaml
+kubectl apply -f k8s/deployment.yaml
+
+# Port-forward to test
+kubectl port-forward svc/devops-chat 3000:80
+# open http://localhost:3000
+```

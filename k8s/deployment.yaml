@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: devops-chat
+  labels:
+    app: devops-chat
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: devops-chat
+  template:
+    metadata:
+      labels:
+        app: devops-chat
+    spec:
+      containers:
+        - name: web
+          image: devops-chat:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3000
+          env:
+            - name: NODE_ENV
+              value: "production"
+            - name: GEMINI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: devops-chat-secrets
+                  key: GEMINI_API_KEY
+            - name: NEXTAUTH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: devops-chat-secrets
+                  key: NEXTAUTH_SECRET
+            - name: NEXTAUTH_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: devops-chat-config
+                  key: NEXTAUTH_URL
+            - name: LOCAL_USERNAME
+              valueFrom:
+                configMapKeyRef:
+                  name: devops-chat-config
+                  key: LOCAL_USERNAME
+            - name: LOCAL_PASSWORD_HASH
+              valueFrom:
+                secretKeyRef:
+                  name: devops-chat-secrets
+                  key: LOCAL_PASSWORD_HASH
+          readinessProbe:
+            httpGet:
+              path: /chat
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 15
+            periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: devops-chat
+  labels:
+    app: devops-chat
+spec:
+  type: ClusterIP
+  selector:
+    app: devops-chat
+  ports:
+    - name: http
+      port: 80
+      targetPort: 3000
