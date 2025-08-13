@@ -189,6 +189,106 @@ export default function ChatPage() {
           <pre className="whitespace-pre-wrap text-sm bg-gray-50 border rounded p-3">{ingestResult}</pre>
         </section>
       )}
+
+      <section className="my-8">
+        <h2 className="text-lg font-semibold mb-2">Crawl URLs (docs)</h2>
+        <UrlCrawler />
+      </section>
+
+      <section className="my-8">
+        <h2 className="text-lg font-semibold mb-2">Ingest GitHub Repo</h2>
+        <GitHubIngest />
+      </section>
+
+      <section className="my-8">
+        <h2 className="text-lg font-semibold mb-2">Bootstrap Core Sources</h2>
+        <BootstrapIndexer />
+      </section>
     </main>
+  );
+}
+
+function BootstrapIndexer() {
+  const [status, setStatus] = useState<string>("");
+
+  async function run() {
+    setStatus("Indexing built-in sources...");
+    const res = await fetch("/api/bootstrap", { method: "POST" });
+    const data = await res.json();
+    setStatus(`Indexed pages: ${data.pages || 0}, files: ${data.files || 0}, chunks: ${data.chunks || 0}`);
+  }
+
+  return (
+    <div className="border rounded p-3 space-y-2">
+      <button className="bg-black text-white px-3 py-1 rounded" type="button" onClick={run}>Index Built-ins</button>
+      <span className="text-sm text-gray-600">{status}</span>
+    </div>
+  );
+}
+
+function UrlCrawler() {
+  const [urls, setUrls] = useState("");
+  const [status, setStatus] = useState<string>("");
+
+  async function submit() {
+    const list = urls
+      .split(/\n|,/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (list.length === 0) return;
+    setStatus("Crawling...");
+    const res = await fetch("/api/crawl", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ urls: list }),
+    });
+    const data = await res.json();
+    setStatus(`Crawled: ${data.totalChunks || 0} chunks`);
+  }
+
+  return (
+    <div className="border rounded p-3 space-y-2">
+      <textarea
+        className="w-full border rounded p-2 text-sm"
+        rows={3}
+        placeholder="Paste documentation URLs (comma or newline separated)"
+        value={urls}
+        onChange={(e) => setUrls(e.target.value)}
+      />
+      <div className="flex items-center gap-2">
+        <button className="bg-black text-white px-3 py-1 rounded" type="button" onClick={submit}>
+          Crawl & Index
+        </button>
+        <span className="text-sm text-gray-600">{status}</span>
+      </div>
+    </div>
+  );
+}
+
+function GitHubIngest() {
+  const [repo, setRepo] = useState("argoproj/argo-rollouts");
+  const [ref, setRef] = useState("HEAD");
+  const [status, setStatus] = useState<string>("");
+
+  async function submit() {
+    setStatus("Ingesting repo...");
+    const res = await fetch("/api/github-ingest", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ repo, ref, maxFiles: 400 }),
+    });
+    const data = await res.json();
+    setStatus(`Processed ${data.filesProcessed || 0} / ${data.totalFiles || 0} files`);
+  }
+
+  return (
+    <div className="border rounded p-3 space-y-2">
+      <div className="flex gap-2">
+        <input className="border rounded px-2 py-1 flex-1" placeholder="owner/repo" value={repo} onChange={(e) => setRepo(e.target.value)} />
+        <input className="border rounded px-2 py-1 w-40" placeholder="ref (e.g., v1.0, HEAD)" value={ref} onChange={(e) => setRef(e.target.value)} />
+        <button className="bg-black text-white px-3 py-1 rounded" type="button" onClick={submit}>Ingest</button>
+      </div>
+      <span className="text-sm text-gray-600">{status}</span>
+    </div>
   );
 }
