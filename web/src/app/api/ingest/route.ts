@@ -2,8 +2,6 @@ import { NextRequest } from "next/server";
 import { chunkText, embedText } from "@/lib/embeddings";
 import { getIndex } from "@/lib/pinecone";
 
-type Meta = { filename: string; chunk: number; ext: string };
-
 type Vector = { id: string; values: number[]; metadata: Record<string, string | number | boolean> };
 
 function summarize(name: string, content: string): string {

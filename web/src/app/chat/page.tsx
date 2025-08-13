@@ -1,8 +1,10 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import mermaid from "mermaid";
 import { useSession, signIn, signOut } from "next-auth/react";
+import type { HTMLAttributes } from "react";
 
 type IngestItem = { name: string; summary: string };
 
@@ -25,6 +27,63 @@ function Mermaid({ code }: { code: string }) {
     };
   }, [code]);
   return <div dangerouslySetInnerHTML={{ __html: html }} />;
+}
+
+function getLanguage(className?: string): string | undefined {
+  if (!className) return undefined;
+  const m = className.match(/language-([^\s]+)/);
+  return m?.[1];
+}
+
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      className="text-xs bg-white border border-gray-300 px-2 py-1 rounded hover:bg-gray-50"
+      onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(text);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1200);
+        } catch {}
+      }}
+    >
+      {copied ? "Copied" : "Copy"}
+    </button>
+  );
+}
+
+function preprocessAnswer(raw: string): string {
+  let text = raw;
+  // Wrap YAML blocks starting with apiVersion:
+  text = text.replace(/(^|\n)(apiVersion:[\s\S]*?)(?:\n\s*\n|$)/g, (_m, p1, block) => {
+    return `${p1}\n\n\`\`\`yaml\n${block.trim()}\`\`\`\n\n`;
+  });
+  // Wrap JSON blocks that look like pretty JSON objects
+  text = text.replace(/(^|\n)\{[\s\S]*?\}\s*(?=\n|$)/g, (m) => {
+    return `\n\n\`\`\`json\n${m.trim()}\`\`\`\n\n`.replace(/`/g, "`");
+  });
+  // Wrap consecutive CLI lines (kubectl, argocd, helm, docker, git, terraform, ansible)
+  const lines = text.split(/\n/);
+  const out: string[] = [];
+  let buffer: string[] = [];
+  const isCli = (s: string) => /^(kubectl|argocd|helm|docker|git|terraform|ansible(?:-playbook)?|kustomize)\b/.test(s.trim());
+  const flush = () => {
+    if (buffer.length) {
+      out.push("\n\`\`\`bash\n" + buffer.join("\n") + "\`\`\`\n");
+      buffer = [];
+    }
+  };
+  for (const l of lines) {
+    if (isCli(l)) buffer.push(l);
+    else {
+      flush();
+      out.push(l);
+    }
+  }
+  flush();
+  return out.join("\n");
 }
 
 export default function ChatPage() {
@@ -101,7 +160,8 @@ export default function ChatPage() {
 
   const { md, mermaidBlocks } = useMemo(() => {
     const blocks: string[] = [];
-    const transformed = (answer || "").replace(/```mermaid([\s\S]*?)```/g, (_m, g1) => {
+    const formatted = preprocessAnswer(answer || "");
+    const transformed = formatted.replace(/```mermaid([\s\S]*?)```/g, (_m, g1) => {
       blocks.push(g1.trim());
       return "\n[Mermaid Diagram]\n";
     });
@@ -125,7 +185,7 @@ export default function ChatPage() {
   }
 
   return (
-    <main className="min-h-screen p-6 max-w-4xl mx-auto">
+    <main className="min-h-screen p-6 max-w-3xl mx-auto">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-semibold">ShipSense</h1>
         <div className="text-sm text-gray-600 flex items-center gap-3">
@@ -163,8 +223,32 @@ export default function ChatPage() {
         <div className="text-sm text-gray-600 mb-2">Tokens: in {tokens.input} / out {tokens.output} / total {tokens.total}</div>
       )}
 
+      {answer && <h2 className="text-lg font-semibold mb-2">Answer</h2>}
       <article className="prose">
-        <ReactMarkdown>{md}</ReactMarkdown>
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          components={{
+            code({ inline, className, children, ...props }: { inline?: boolean; className?: string; children?: React.ReactNode } & HTMLAttributes<HTMLElement>) {
+              const text = String(children ?? "");
+              const isShort = text.trim().split("\n").length === 1 && text.trim().length <= 50;
+              if (inline || isShort) {
+                return <code className="bg-gray-100 rounded px-1 py-0.5" {...props}>{text}</code>;
+              }
+              const lang = getLanguage(className) || "text";
+              return (
+                <div className="rounded border border-gray-200 overflow-hidden mb-4">
+                  <div className="flex items-center justify-between bg-gray-50 px-3 py-1.5 border-b border-gray-200 text-xs text-gray-600">
+                    <span>{lang}</span>
+                    <CopyButton text={text} />
+                  </div>
+                  <pre className="bg-white text-gray-900 text-sm p-3 overflow-x-auto"><code className={className} {...props}>{text}</code></pre>
+                </div>
+              );
+            },
+          }}
+        >
+          {md}
+        </ReactMarkdown>
       </article>
       {mermaidBlocks.map((code, i) => (
         <div key={i} className="my-4 border rounded p-3 overflow-x-auto">
@@ -284,7 +368,7 @@ function GitHubIngest() {
   return (
     <div className="border rounded p-3 space-y-2">
       <p className="text-sm text-gray-600">
-        Note: Core repos (Jenkins, Argo*, Terraform, Ansible) are included in "Index Built-ins". Ingesting a
+        Note: Core repos (Jenkins, Argo*, Terraform, Ansible) are included in Index Built-ins. Ingesting a
         repo here will index its source files (md/yaml/tf/sh/code, &lt;1MB) to power code-aware troubleshooting
         and recommendations.
       </p>

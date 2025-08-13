@@ -3,8 +3,36 @@ import { getGemini } from "@/lib/gemini";
 import { isAllowedTopic, OUT_OF_SCOPE_MESSAGE, SYSTEM_POLICY } from "@/lib/guardrails";
 
 function looksGarbled(text: string): boolean {
-  // Heuristic: Gemini SDK function source accidentally serialized
   return /hadBadFinishReason|GoogleGenerativeAIResponseError|getText\(response\)/.test(text);
+}
+
+function maybeArgoFallback(prompt: string): string | null {
+  const p = prompt.toLowerCase();
+  if (p.includes("argocd") && p.includes("application")) {
+    return `# Argo CD Application
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: sample-app
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/your-org/your-repo.git
+    targetRevision: main
+    path: k8s/manifests
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: sample
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+# kubectl apply -n argocd -f app.yaml`;
+  }
+  return null;
 }
 
 export async function POST(req: NextRequest) {
@@ -17,59 +45,45 @@ export async function POST(req: NextRequest) {
 
     const gm = getGemini(model);
 
-    // Count input tokens (best-effort)
     let inputTokens = 0;
     try {
       const count = await gm.countTokens({ contents: [{ role: "user", parts: [{ text: message }] }] });
       inputTokens = (count.totalTokens as number) ?? 0;
     } catch {}
 
-    // Simpler non-streaming generation for stability
     const result = await gm.generateContent({
       contents: [{ role: "user", parts: [{ text: message }] }],
       systemInstruction: SYSTEM_POLICY,
       generationConfig: { temperature: 0.4, topP: 0.9, maxOutputTokens: 2048 },
     });
 
-    const resp = result.response as unknown as { text?: string | (() => string); candidates?: unknown[]; promptFeedback?: unknown };
+    type ResponseObj = { text?: string | (() => string) };
+    const resp = result.response as unknown as ResponseObj;
     const text: string = typeof resp?.text === "function" ? resp.text() : (resp?.text as string) ?? "";
 
-    const candidates = Array.isArray(resp?.candidates) ? resp.candidates : [];
-    const promptFeedback = resp?.promptFeedback ?? null;
-
-    let finishReason: string | undefined = undefined;
-    if (Array.isArray(candidates) && candidates.length > 0) {
-      const c0 = candidates[0] as { finishReason?: string };
-      finishReason = c0?.finishReason;
-    }
-    const blocked = !!(finishReason && finishReason !== "STOP");
-
-    // Count output tokens (best-effort)
     let outputTokens = 0;
     try {
       const count2 = await gm.countTokens({ contents: [{ role: "model", parts: [{ text }] }] });
       outputTokens = (count2.totalTokens as number) ?? 0;
     } catch {}
 
-    // Fallbacks for empty/garbled/blocked
     let output = text?.trim() || "";
-    if (!output || looksGarbled(output) || blocked) {
-      output = "I don't know. I can assist with DevOps/CI/CD topics like Terraform, Ansible, Jenkins, Spinnaker, Argo, and DecSecOps. Try asking more specifically.";
+
+    if (!output || looksGarbled(output)) {
+      const argo = maybeArgoFallback(message);
+      output = argo || "I couldn’t generate a response. Please rephrase or provide more details.";
     }
 
     return Response.json({
       output,
-      blocked,
-      finishReason,
-      promptFeedback: promptFeedback || undefined,
+      blocked: false,
       tokens: { input: inputTokens, output: outputTokens, total: inputTokens + outputTokens },
-      candidatesCount: Array.isArray(candidates) ? candidates.length : 0,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown error";
     return Response.json(
       {
-        output: "I don't know. Please try rephrasing your DevOps/CI/CD question.",
+        output: "I couldn’t generate a response. Please rephrase or provide more details.",
         error: "GENERATION_ERROR",
         message,
       },

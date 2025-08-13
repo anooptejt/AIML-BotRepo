@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
       }
       if (vectors.length) await index.upsert(vectors);
       filesProcessed++;
-    } catch (e) {
+    } catch {
       // skip errors
     }
   }

@@ -1,11 +1,10 @@
-import { NextRequest } from "next/server";
 import { CORE_DOC_URLS, CORE_GH_REPOS } from "@/lib/sources";
 import { fetchAndExtract } from "@/lib/crawl";
 import { fetchRepoTree, fetchFileContent } from "@/lib/github";
 import { chunkText, embedText } from "@/lib/embeddings";
 import { getIndex } from "@/lib/pinecone";
 
-export async function POST(_req: NextRequest) {
+export async function POST() {
   const index = getIndex();
   let chunks = 0, files = 0, pages = 0;
 
