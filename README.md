@@ -62,7 +62,7 @@ AIML-BotRepo
 - [ ] Integrate Pinecone Vector DB (free tier) for storing and retrieving relevant information
 
 ### Advanced/Complex Tasks
-- [ ] Implement DevOps/DecSecOps process guidance and best practices
+- [ ] Implement DevOps/DevSecOps process guidance and best practices
 - [ ] Test with real-world open-source projects for feedback and improvement
 - [ ] Polish UI/UX and add user documentation
 
