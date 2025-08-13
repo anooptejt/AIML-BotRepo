@@ -1,5 +1,5 @@
 # AIML-BotRepo
-AIML-BotRepo
+ShipSense – AI DevOps assistant (CI/CD, diagrams, vector search)
 
 ## ToDo List for Tomorrow
 - [x] Create Simple UI
@@ -19,9 +19,9 @@ AIML-BotRepo
 
 ### Sprint 2: Core Features (August 26th - September 2nd)
 **Goal:** Implement essential features for code analysis and visualization
-- [ ] Implement code parsing for open-source projects (basic file upload and analysis)
-- [ ] Add diagram/visual workflow generation using Mermaid.js or similar
-- [ ] Integrate Pinecone Vector DB (free tier) for storing and retrieving relevant information
+- [x] Implement code parsing for open-source projects (basic file upload and analysis)
+- [x] Add diagram/visual workflow generation using Mermaid.js or similar (auto-detected)
+- [x] Integrate Pinecone Vector DB (free tier) for storing and retrieving relevant information
 
 ### Sprint 3: DevOps Tools Integration (September 3rd - September 10th)
 **Goal:** Add support for major DevOps tools and platforms
@@ -33,7 +33,7 @@ AIML-BotRepo
 **Goal:** Implement advanced DevOps features and Argo ecosystem
 - [ ] Add support for ArgoCD, Argo Workflows, and Argo Rollouts
 - [ ] Integrate a pre-trained model (e.g., Google Gemini) that provides accurate results for user input
-- [ ] Implement DevOps/DevSecOps process guidance and best practices
+- [ ] Implement DevOps/DecSecOps process guidance and best practices
 
 ### Sprint 5: Testing & Polish (September 19th - September 30th)
 **Goal:** Final testing, optimization, and documentation
@@ -49,8 +49,8 @@ AIML-BotRepo
 - [x] Implement basic chat UI for user interaction
 - [ ] Add GitHub authentication (OAuth) for user login
 - [x] Integrate Gemini or LLM for basic code generation (e.g., shell scripts)
-- [ ] Implement code parsing for open-source projects (basic file upload and analysis)
-- [ ] Add diagram/visual workflow generation using Mermaid.js or similar
+- [x] Implement code parsing for open-source projects (basic file upload and analysis)
+- [x] Add diagram/visual workflow generation using Mermaid.js or similar
 - [x] Implement token tracking system for input/output tokens display in UI
 
 ### Intermediate Tasks
@@ -58,13 +58,24 @@ AIML-BotRepo
 - [ ] Add support for ArgoCD, Argo Workflows, and Argo Rollouts
 - [ ] Add support for Terraform job generation and analysis
 - [ ] Add support for Ansible playbook generation and analysis
-- [ ] Integrate a pre-trained model (e.g., Google Gemini) that provides accurate results for user input
-- [ ] Integrate Pinecone Vector DB (free tier) for storing and retrieving relevant information
+- [x] Integrate a pre-trained model (e.g., Google Gemini) that provides accurate results for user input
+- [x] Integrate Pinecone Vector DB (free tier) for storing and retrieving relevant information
 
 ### Advanced/Complex Tasks
-- [ ] Implement DevOps/DevSecOps process guidance and best practices
+- [ ] Implement DevOps/DecSecOps process guidance and best practices
 - [ ] Test with real-world open-source projects for feedback and improvement
 - [ ] Polish UI/UX and add user documentation
+
+---
+
+## Current Status
+- Branding: ShipSense
+- Chat: Gemini 2.5 Pro with token counts
+- Diagrams: Mermaid generation auto-detected from prompt (no toggle)
+- Vector DB: Pinecone ingest/search; citations shown in answers
+- Ingest: Upload `.sh`, `.tf`, `.yaml/.yml`, `.groovy` files for parsing + indexing
+- Auth: Credentials login (Google Sign-In available on branch `UserGoogleSign-In`)
+- Ops: pm2 shortcuts via `Makefile`; Dockerfile; Kubernetes manifests
 
 ---
 
@@ -74,16 +85,20 @@ Prereqs: Node 18+.
 
 1. Set env vars in `web/.env.local`:
 ```
+# Gemini
 GEMINI_API_KEY=YOUR_KEY
 NEXTAUTH_SECRET=some-random-string
 NEXTAUTH_URL=http://localhost:3000
+
+# Demo login (bcrypt hash preferred)
 LOCAL_USERNAME=anoop@opsmx.io
-# Use either LOCAL_PASSWORD_HASH (bcrypt) or LOCAL_PASSWORD (dev only)
 LOCAL_PASSWORD_HASH=<bcrypt-hash>
 # LOCAL_PASSWORD=<plaintext-dev-only>
-# Optional: Google OAuth
-GOOGLE_CLIENT_ID=<google-oauth-client-id>
-GOOGLE_CLIENT_SECRET=<google-oauth-client-secret>
+
+# Pinecone
+PINECONE_API_KEY=YOUR_PINECONE_KEY
+PINECONE_INDEX=devops-chat
+PINECONE_HOST=https://your-pinecone-host
 ```
 
 2. Install & run:
@@ -114,23 +129,23 @@ pm2 startup   # follow instructions printed
 ### Container build (Docker)
 ```
 cd web
-docker build -t devops-chat:latest .
+docker build -t shipsense:latest .
 # run locally
 docker run --rm -p 3000:3000 \
   -e GEMINI_API_KEY=$GEMINI_API_KEY \
   -e NEXTAUTH_SECRET=$NEXTAUTH_SECRET \
   -e NEXTAUTH_URL=http://localhost:3000 \
-  -e LOCAL_USERNAME=anoop@opsmx.io \
+  -e LOCAL_USERNAME=$LOCAL_USERNAME \
   -e LOCAL_PASSWORD_HASH=$LOCAL_PASSWORD_HASH \
-  -e GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID \
-  -e GOOGLE_CLIENT_SECRET=$GOOGLE_CLIENT_SECRET \
-  devops-chat:latest
+  -e PINECONE_API_KEY=$PINECONE_API_KEY \
+  -e PINECONE_INDEX=$PINECONE_INDEX \
+  -e PINECONE_HOST=$PINECONE_HOST \
+  shipsense:latest
 ```
 
 ### Kubernetes
 ```
-# Edit k8s/config.yaml to set NEXTAUTH_URL, LOCAL_USERNAME
-# Put secrets in k8s/config.yaml (stringData) or create a separate Secret
+# Edit k8s/config.yaml to set NEXTAUTH_URL, LOCAL_USERNAME and secrets
 kubectl apply -f k8s/config.yaml
 kubectl apply -f k8s/deployment.yaml
 
