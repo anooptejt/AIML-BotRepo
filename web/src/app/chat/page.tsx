@@ -63,10 +63,7 @@ export default function ChatPage() {
     return (
       <main className="p-6 max-w-xl mx-auto">
         <h1 className="text-2xl font-semibold mb-2">Sign in</h1>
-        <p className="mb-4 text-gray-600">Use Google or the demo credentials.</p>
-        <div className="mb-4">
-          <button className="border px-4 py-2 rounded" onClick={() => signIn("google")}>Sign in with Google</button>
-        </div>
+        <p className="mb-4 text-gray-600">Use the configured demo credentials.</p>
         <form className="flex flex-col gap-2 w-full" onSubmit={(e) => { e.preventDefault(); doLogin(); }}>
           <input className="border rounded px-3 py-2" placeholder="Username" value={username} onChange={(e) => setUsername(e.target.value)} />
           <input className="border rounded px-3 py-2" placeholder="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
