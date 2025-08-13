@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import mermaid from "mermaid";
 import { useSession, signIn, signOut } from "next-auth/react";
@@ -32,10 +32,9 @@ export default function ChatPage() {
   const [message, setMessage] = useState("");
   const [answer, setAnswer] = useState("");
   const [tokens, setTokens] = useState<{ input: number; output: number; total: number } | null>(null);
-  const [diagramMode, setDiagramMode] = useState(false);
-  const [useVector, setUseVector] = useState(false);
   const [ingestResult, setIngestResult] = useState<string>("");
   const [sources, setSources] = useState<Match[]>([]);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Local login form state
   const [username, setUsername] = useState("");
@@ -48,25 +47,38 @@ export default function ChatPage() {
     if (res?.error) setLoginError("Invalid credentials");
   }
 
+  function wantsDiagram(text: string): boolean {
+    const t = text.toLowerCase();
+    return ["diagram", "mermaid", "flowchart", "sequence diagram"].some((k) => t.includes(k));
+  }
+
   async function send() {
     if (!message.trim()) return;
     setAnswer("");
     setSources([]);
-    if (diagramMode) {
+
+    // If the user asks for a diagram, call the diagram endpoint.
+    if (wantsDiagram(message)) {
       const res = await fetch("/api/diagram", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt: message }) });
       const data = await res.json();
       setAnswer(data.output || "");
       setTokens(null);
       return;
     }
-    if (useVector) {
+
+    // Default path: vector search with Gemini answer and citations
+    try {
       const res = await fetch("/api/search", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query: message, topK: 5, answer: true }) });
       const data = await res.json();
-      setAnswer(data.answer || "");
-      setSources((data.matches || []) as Match[]);
-      setTokens(null);
-      return;
-    }
+      if (data?.answer) {
+        setAnswer(data.answer);
+        setSources((data.matches || []) as Match[]);
+        setTokens(null);
+        return;
+      }
+    } catch {}
+
+    // Fallback to plain chat endpoint
     const res = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message }) });
     const data = await res.json();
     setAnswer(data.output || "");
@@ -83,6 +95,8 @@ export default function ChatPage() {
     const items: IngestItem[] = (data.results || []) as IngestItem[];
     const summaries = items.map((r) => `- ${r.name}\n\n${r.summary}`).join("\n\n");
     setIngestResult(summaries);
+    // Reset file input so the same files can be re-uploaded later if needed
+    if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
   const { md, mermaidBlocks } = useMemo(() => {
@@ -120,31 +134,32 @@ export default function ChatPage() {
         </div>
       </div>
 
-      <div className="flex items-center gap-4 mb-3 flex-wrap">
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={diagramMode} onChange={(e) => setDiagramMode(e.target.checked)} />
-          Diagram mode (Mermaid)
-        </label>
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={useVector} onChange={(e) => setUseVector(e.target.checked)} />
-          Use Vector DB
-        </label>
-        <input type="file" multiple accept=".sh,.tf,.yaml,.yml,.groovy" onChange={onUpload} />
+      <div className="flex items-center gap-3 mb-3">
+        <input ref={fileInputRef} type="file" multiple accept=".sh,.tf,.yaml,.yml,.groovy" onChange={onUpload} className="hidden" />
+        <button
+          className="border rounded px-3 py-2"
+          type="button"
+          aria-label="Attach files"
+          title="Attach files"
+          onClick={() => fileInputRef.current?.click()}
+        >
+          📎 Attach
+        </button>
       </div>
 
       <form className="flex gap-2 mb-4" onSubmit={(e) => { e.preventDefault(); send(); }}>
         <input
           className="flex-1 border rounded px-3 py-2"
-          placeholder={diagramMode ? "Describe a DevOps diagram (e.g., Jenkins pipeline)" : useVector ? "Search your ingested code..." : "Ask about Jenkins/Terraform/Argo..."}
+          placeholder={"Ask a DevOps question or request a diagram (e.g., 'Create a Jenkins pipeline diagram')"}
           value={message}
           onChange={(e) => setMessage(e.target.value)}
         />
         <button type="submit" className="bg-black text-white px-4 py-2 rounded">
-          {diagramMode ? "Generate Diagram" : useVector ? "Search" : "Send"}
+          Send
         </button>
       </form>
 
-      {tokens && !diagramMode && !useVector && (
+      {tokens && (
         <div className="text-sm text-gray-600 mb-2">Tokens: in {tokens.input} / out {tokens.output} / total {tokens.total}</div>
       )}
 
@@ -157,7 +172,7 @@ export default function ChatPage() {
         </div>
       ))}
 
-      {useVector && sources.length > 0 && (
+      {sources.length > 0 && (
         <section className="my-6">
           <h2 className="text-lg font-semibold mb-2">Sources</h2>
           <ul className="text-sm list-disc pl-5">
