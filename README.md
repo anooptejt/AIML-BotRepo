@@ -81,6 +81,9 @@ LOCAL_USERNAME=anoop@opsmx.io
 # Use either LOCAL_PASSWORD_HASH (bcrypt) or LOCAL_PASSWORD (dev only)
 LOCAL_PASSWORD_HASH=<bcrypt-hash>
 # LOCAL_PASSWORD=<plaintext-dev-only>
+# Optional: Google OAuth
+GOOGLE_CLIENT_ID=<google-oauth-client-id>
+GOOGLE_CLIENT_SECRET=<google-oauth-client-secret>
 ```
 
 2. Install & run:
@@ -119,6 +122,8 @@ docker run --rm -p 3000:3000 \
   -e NEXTAUTH_URL=http://localhost:3000 \
   -e LOCAL_USERNAME=anoop@opsmx.io \
   -e LOCAL_PASSWORD_HASH=$LOCAL_PASSWORD_HASH \
+  -e GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID \
+  -e GOOGLE_CLIENT_SECRET=$GOOGLE_CLIENT_SECRET \
   devops-chat:latest
 ```
 

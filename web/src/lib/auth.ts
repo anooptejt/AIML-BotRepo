@@ -1,5 +1,6 @@
 import type { NextAuthOptions, User } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
+import Google from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
 
 const DEFAULT_USERNAME = process.env.LOCAL_USERNAME || "anoop@opsmx.io";
@@ -14,7 +15,6 @@ async function verifyPassword(plain: string): Promise<boolean> {
       return false;
     }
   }
-  // Fallback to cleartext only if explicitly provided (not recommended for prod)
   if (FALLBACK_PASSWORD) return plain === FALLBACK_PASSWORD;
   return false;
 }
@@ -22,6 +22,13 @@ async function verifyPassword(plain: string): Promise<boolean> {
 export const authOptions: NextAuthOptions = {
   session: { strategy: "jwt" },
   providers: [
+    // Google OAuth (users can sign in with their Gmail)
+    Google({
+      clientId: process.env.GOOGLE_CLIENT_ID || "",
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
+      allowDangerousEmailAccountLinking: true,
+    }),
+    // Credentials fallback (demo login)
     Credentials({
       name: "Credentials",
       credentials: {
