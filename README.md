@@ -54,10 +54,10 @@ ShipSense – AI DevOps assistant (CI/CD, diagrams, vector search)
 - [x] Implement token tracking system for input/output tokens display in UI
 
 ### Intermediate Tasks
-- [ ] Add support for Jenkins pipeline generation and management
-- [ ] Add support for ArgoCD, Argo Workflows, and Argo Rollouts
-- [ ] Add support for Terraform job generation and analysis
-- [ ] Add support for Ansible playbook generation and analysis
+- [x] Add support for Jenkins pipeline generation and management
+- [x] Add support for ArgoCD, Argo Workflows, and Argo Rollouts
+- [x] Add support for Terraform job generation and analysis
+- [x] Add support for Ansible playbook generation and analysis
 - [x] Integrate a pre-trained model (e.g., Google Gemini) that provides accurate results for user input
 - [x] Integrate Pinecone Vector DB (free tier) for storing and retrieving relevant information
 
