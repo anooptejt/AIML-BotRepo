@@ -283,6 +283,11 @@ function GitHubIngest() {
 
   return (
     <div className="border rounded p-3 space-y-2">
+      <p className="text-sm text-gray-600">
+        Note: Core repos (Jenkins, Argo*, Terraform, Ansible) are included in "Index Built-ins". Ingesting a
+        repo here will index its source files (md/yaml/tf/sh/code, &lt;1MB) to power code-aware troubleshooting
+        and recommendations.
+      </p>
       <div className="flex gap-2">
         <input className="border rounded px-2 py-1 flex-1" placeholder="owner/repo" value={repo} onChange={(e) => setRepo(e.target.value)} />
         <input className="border rounded px-2 py-1 w-40" placeholder="ref (e.g., v1.0, HEAD)" value={ref} onChange={(e) => setRef(e.target.value)} />
