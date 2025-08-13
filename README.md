@@ -33,7 +33,7 @@ AIML-BotRepo
 **Goal:** Implement advanced DevOps features and Argo ecosystem
 - [ ] Add support for ArgoCD, Argo Workflows, and Argo Rollouts
 - [ ] Integrate a pre-trained model (e.g., Google Gemini) that provides accurate results for user input
-- [ ] Implement DevOps/DecSecOps process guidance and best practices
+- [ ] Implement DevOps/DevSecOps process guidance and best practices
 
 ### Sprint 5: Testing & Polish (September 19th - September 30th)
 **Goal:** Final testing, optimization, and documentation
