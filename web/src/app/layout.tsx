@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "DevOps Chat Bot",
-  description: "Responsible AI DevOps assistant",
+  title: "ShipSense",
+  description: "ShipSense - AI DevOps assistant for CI/CD",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

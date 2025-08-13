@@ -127,7 +127,7 @@ export default function ChatPage() {
   return (
     <main className="min-h-screen p-6 max-w-4xl mx-auto">
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-semibold">DevOps Chat</h1>
+        <h1 className="text-2xl font-semibold">ShipSense</h1>
         <div className="text-sm text-gray-600 flex items-center gap-3">
           <span>{session.user?.email || session.user?.name}</span>
           <button className="underline" onClick={() => signOut({ callbackUrl: "/chat" })}>Sign out</button>
