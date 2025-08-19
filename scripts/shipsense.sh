@@ -116,16 +116,26 @@ fmt_or_cat() {
 
 cmd_test_ansible() {
   echo "Testing Ansible generation endpoint..."
-  curl -s -X POST "$BACKEND_URL/ansible-generate" \
+  resp=$(curl -s -X POST "$BACKEND_URL/ansible-generate" \
     -H "Content-Type: application/json" \
-    -d '{"prompt": "Create an Ansible playbook for installing nginx on web servers"}' | fmt_or_cat
+    -d '{"prompt": "Create an Ansible playbook for installing nginx on web servers"}') || true
+  if command -v jq >/dev/null 2>&1; then
+    echo "$resp" | jq -r '.output // .error // .yaml_validation // .hcl_validation // .status // "(no output)"' | head -40
+  else
+    echo "$resp"
+  fi
 }
 
 cmd_test_terraform() {
   echo "Testing Terraform generation endpoint..."
-  curl -s -X POST "$BACKEND_URL/terraform-generate" \
+  resp=$(curl -s -X POST "$BACKEND_URL/terraform-generate" \
     -H "Content-Type: application/json" \
-    -d '{"prompt": "Create a Terraform configuration for an AWS EC2 instance with VPC"}' | fmt_or_cat
+    -d '{"prompt": "Create a Terraform configuration for an AWS EC2 instance with VPC"}') || true
+  if command -v jq >/dev/null 2>&1; then
+    echo "$resp" | jq -r '.output // .error // .yaml_validation // .hcl_validation // .status // "(no output)"' | head -40
+  else
+    echo "$resp"
+  fi
 }
 
 cmd_test_all() { cmd_test_ansible; echo ""; cmd_test_terraform; }
