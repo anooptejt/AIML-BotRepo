@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
       return Response.json({ error: "MISSING_PROMPT" }, { status: 400 });
     }
     if (!isAllowedTopic(prompt)) {
-      return Response.json({ output: "I can only diagram DevOps/CI/CD topics." });
+      return Response.json({ output: "```mermaid\nflowchart TD; A[Out of scope]-->B[Ask DevOps/CI/CD]\n```" });
     }
 
     const gm = getGemini(model);
@@ -31,7 +31,8 @@ export async function POST(req: NextRequest) {
     const text: string = typeof resp?.text === "function" ? resp.text() : (resp?.text as string) ?? "";
 
     const match = text.match(/```mermaid[\s\S]*?```/i);
-    const output = match ? match[0] : "```mermaid\nflowchart TD; A[Start]-->B[No diagram returned];\n```";
+    const fallback = `\n\n\`\`\`mermaid\nflowchart TD; A[${prompt.slice(0, 40)}]-->B[Details]\n\`\`\`\n\n`.replace(/`/g, "`");
+    const output = match ? match[0] : fallback;
     return Response.json({ output });
   } catch {
     return Response.json({ output: "```mermaid\nflowchart LR; E[Error]-->C[Try again];\n```" });

@@ -58,12 +58,24 @@ function preprocessAnswer(raw: string): string {
   let text = raw;
   // Wrap YAML blocks starting with apiVersion:
   text = text.replace(/(^|\n)(apiVersion:[\s\S]*?)(?:\n\s*\n|$)/g, (_m, p1, block) => {
-    return `${p1}\n\n\`\`\`yaml\n${block.trim()}\`\`\`\n\n`;
+    return p1 + "\n\n" + "```yaml\n" + block.trim() + "\n```\n\n";
   });
   // Wrap JSON blocks that look like pretty JSON objects
   text = text.replace(/(^|\n)\{[\s\S]*?\}\s*(?=\n|$)/g, (m) => {
-    return `\n\n\`\`\`json\n${m.trim()}\`\`\`\n\n`.replace(/`/g, "`");
+    return "\n\n" + "```json\n" + m.trim() + "\n```\n\n";
   });
+  // Auto-wrap raw Mermaid diagrams if not fenced
+  if (!/```mermaid/.test(text)) {
+    const mermaidMatch = text.match(/(^|\n)(?:%%\{[\s\S]*?\}%%\s*)?(graph\b|flowchart\b|sequenceDiagram\b|classDiagram\b|stateDiagram\b|gantt\b)[\s\S]*/);
+    if (mermaidMatch) {
+      const startIdx = mermaidMatch.index ?? 0;
+      const tail = text.slice(startIdx);
+      const endBreak = tail.search(/\n\s*\n/);
+      const diagram = (endBreak === -1 ? tail : tail.slice(0, endBreak)).trim();
+      const fenced = "\n\n" + "```mermaid\n" + diagram + "\n```\n\n";
+      text = text.slice(0, startIdx) + fenced + (endBreak === -1 ? "" : tail.slice(endBreak));
+    }
+  }
   // Wrap consecutive CLI lines (kubectl, argocd, helm, docker, git, terraform, ansible)
   const lines = text.split(/\n/);
   const out: string[] = [];
@@ -71,7 +83,7 @@ function preprocessAnswer(raw: string): string {
   const isCli = (s: string) => /^(kubectl|argocd|helm|docker|git|terraform|ansible(?:-playbook)?|kustomize)\b/.test(s.trim());
   const flush = () => {
     if (buffer.length) {
-      out.push("\n\`\`\`bash\n" + buffer.join("\n") + "\`\`\`\n");
+      out.push("\n```bash\n" + buffer.join("\n") + "\n```\n");
       buffer = [];
     }
   };
@@ -94,6 +106,16 @@ export default function ChatPage() {
   const [ingestResult, setIngestResult] = useState<string>("");
   const [sources, setSources] = useState<Match[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // One-time silent bootstrap of built-in sources per browser
+  useEffect(() => {
+    const key = "shipsense_bootstrapped_v1";
+    if (typeof window !== "undefined" && !localStorage.getItem(key)) {
+      fetch("/api/bootstrap", { method: "POST" }).finally(() => {
+        try { localStorage.setItem(key, "1"); } catch {}
+      });
+    }
+  }, []);
 
   // Local login form state
   const [username, setUsername] = useState("");
@@ -283,30 +305,7 @@ export default function ChatPage() {
         <h2 className="text-lg font-semibold mb-2">Ingest GitHub Repo</h2>
         <GitHubIngest />
       </section>
-
-      <section className="my-8">
-        <h2 className="text-lg font-semibold mb-2">Bootstrap Core Sources</h2>
-        <BootstrapIndexer />
-      </section>
     </main>
-  );
-}
-
-function BootstrapIndexer() {
-  const [status, setStatus] = useState<string>("");
-
-  async function run() {
-    setStatus("Indexing built-in sources...");
-    const res = await fetch("/api/bootstrap", { method: "POST" });
-    const data = await res.json();
-    setStatus(`Indexed pages: ${data.pages || 0}, files: ${data.files || 0}, chunks: ${data.chunks || 0}`);
-  }
-
-  return (
-    <div className="border rounded p-3 space-y-2">
-      <button className="bg-black text-white px-3 py-1 rounded" type="button" onClick={run}>Index Built-ins</button>
-      <span className="text-sm text-gray-600">{status}</span>
-    </div>
   );
 }
 
