@@ -6,3 +6,7 @@ scikit-learn
 joblib
 shap
 python-pptx
+fastapi
+uvicorn
+google-generativeai
+PyYAML

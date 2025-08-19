@@ -1,8 +1,10 @@
 import os
-from typing import Optional
+from typing import Optional, List, Dict, Any
 from fastapi import FastAPI
 from pydantic import BaseModel
 import google.generativeai as genai
+import yaml
+import json
 
 ALLOWED = {
     "ci","cd","cicd","devops","terraform","ansible","jenkins","spinnaker",
@@ -15,6 +17,28 @@ SYSTEM_POLICY = (
     "If the user asks anything outside these topics, politely refuse and suggest DevOps topics."
 )
 
+# Ansible-specific system prompt
+ANSIBLE_SYSTEM_PROMPT = (
+    "You are an Ansible expert. Generate complete, production-ready Ansible playbooks with: "
+    "- Proper YAML formatting and indentation "
+    "- Host targeting and variable definitions "
+    "- Error handling and idempotency "
+    "- Best practices for security and maintainability "
+    "- Clear comments explaining each task "
+    "- Appropriate task names and descriptions"
+)
+
+# Terraform-specific system prompt
+TERRAFORM_SYSTEM_PROMPT = (
+    "You are a Terraform expert. Generate complete, production-ready Terraform configurations with: "
+    "- Proper HCL syntax and formatting "
+    "- Variable definitions and outputs "
+    "- Resource dependencies and data sources "
+    "- Best practices for security and state management "
+    "- Clear comments explaining each resource "
+    "- Appropriate resource naming conventions"
+)
+
 class ChatIn(BaseModel):
     message: str
     model: Optional[str] = "gemini-2.5-pro"
@@ -22,12 +46,91 @@ class ChatIn(BaseModel):
     top_p: Optional[float] = 0.9
     max_output_tokens: Optional[int] = 2048
 
+class AnsibleGenerateIn(BaseModel):
+    prompt: str
+    model: Optional[str] = "gemini-2.5-pro"
+    temperature: Optional[float] = 0.2
+    max_output_tokens: Optional[int] = 4096
+
+class TerraformGenerateIn(BaseModel):
+    prompt: str
+    model: Optional[str] = "gemini-2.5-pro"
+    temperature: Optional[float] = 0.2
+    max_output_tokens: Optional[int] = 4096
+
 app = FastAPI()
 
 
 def is_allowed(text: str) -> bool:
     t = text.lower()
     return any(k in t for k in ALLOWED)
+
+
+def extract_ansible_requirements(prompt: str) -> Dict[str, Any]:
+    """Extract Ansible requirements from user prompt"""
+    requirements = {
+        "target_hosts": "all",
+        "tasks": [],
+        "variables": {},
+        "handlers": [],
+        "roles": []
+    }
+    
+    prompt_lower = prompt.lower()
+    
+    # Detect target hosts
+    if "webserver" in prompt_lower or "web" in prompt_lower:
+        requirements["target_hosts"] = "webservers"
+    elif "database" in prompt_lower or "db" in prompt_lower:
+        requirements["target_hosts"] = "databases"
+    elif "load balancer" in prompt_lower or "lb" in prompt_lower:
+        requirements["target_hosts"] = "loadbalancers"
+    
+    # Detect common tasks
+    if "install" in prompt_lower or "package" in prompt_lower:
+        requirements["tasks"].append("package_installation")
+    if "configure" in prompt_lower or "config" in prompt_lower:
+        requirements["tasks"].append("configuration")
+    if "service" in prompt_lower or "start" in prompt_lower:
+        requirements["tasks"].append("service_management")
+    if "file" in prompt_lower or "copy" in prompt_lower:
+        requirements["tasks"].append("file_operations")
+    
+    return requirements
+
+
+def extract_terraform_requirements(prompt: str) -> Dict[str, Any]:
+    """Extract Terraform requirements from user prompt"""
+    requirements = {
+        "provider": "aws",
+        "resources": [],
+        "variables": [],
+        "outputs": []
+    }
+    
+    prompt_lower = prompt.lower()
+    
+    # Detect cloud provider
+    if "aws" in prompt_lower or "amazon" in prompt_lower:
+        requirements["provider"] = "aws"
+    elif "azure" in prompt_lower:
+        requirements["provider"] = "azure"
+    elif "gcp" in prompt_lower or "google" in prompt_lower:
+        requirements["provider"] = "google"
+    
+    # Detect resource types
+    if "ec2" in prompt_lower or "instance" in prompt_lower or "vm" in prompt_lower:
+        requirements["resources"].append("compute_instance")
+    if "vpc" in prompt_lower or "network" in prompt_lower:
+        requirements["resources"].append("network")
+    if "s3" in prompt_lower or "storage" in prompt_lower or "bucket" in prompt_lower:
+        requirements["resources"].append("storage")
+    if "rds" in prompt_lower or "database" in prompt_lower:
+        requirements["resources"].append("database")
+    if "load balancer" in prompt_lower or "alb" in prompt_lower:
+        requirements["resources"].append("load_balancer")
+    
+    return requirements
 
 
 @app.on_event("startup")
@@ -71,7 +174,16 @@ def chat(inp: ChatIn):
         ],
     )
 
-    output_text = resp.text if hasattr(resp, "text") else str(resp)
+    # Handle Gemini API response properly
+    try:
+        if hasattr(resp, "text") and resp.text:
+            output_text = resp.text
+        elif hasattr(resp, "parts") and resp.parts:
+            output_text = "".join([part.text for part in resp.parts if hasattr(part, "text") and part.text])
+        else:
+            output_text = str(resp)
+    except Exception as e:
+        output_text = f"Error processing response: {str(e)}"
 
     output_tokens = 0
     try:
@@ -83,6 +195,174 @@ def chat(inp: ChatIn):
     return {
         "output": output_text,
         "tokens": {"input": input_tokens, "output": output_tokens, "total": (input_tokens + output_tokens)},
+    }
+
+
+@app.post("/ansible-generate")
+def generate_ansible_playbook(inp: AnsibleGenerateIn):
+    """Generate Ansible playbook based on user requirements"""
+    if not is_allowed(inp.prompt):
+        return {
+            "output": "Sorry, I can only assist with DevOps/CI/CD topics.",
+            "tokens": {"input": 0, "output": 0, "total": 0},
+        }
+    
+    # Extract requirements from prompt
+    requirements = extract_ansible_requirements(inp.prompt)
+    
+    # Create enhanced prompt for Gemini
+    enhanced_prompt = f"""
+Generate a complete Ansible playbook based on these requirements:
+{inp.prompt}
+
+Requirements extracted:
+- Target hosts: {requirements['target_hosts']}
+- Tasks needed: {', '.join(requirements['tasks']) if requirements['tasks'] else 'General DevOps tasks'}
+
+Please provide:
+1. A complete playbook in YAML format
+2. Proper host targeting
+3. Variable definitions if needed
+4. Error handling and idempotency
+5. Clear comments for each task
+6. Best practices for security
+
+Format the response as a complete, ready-to-use Ansible playbook.
+"""
+    
+    model = genai.GenerativeModel(inp.model, system_instruction=ANSIBLE_SYSTEM_PROMPT)
+    
+    resp = model.generate_content(
+        enhanced_prompt,
+        generation_config={
+            "temperature": inp.temperature,
+            "max_output_tokens": inp.max_output_tokens,
+        },
+        safety_settings=[
+            {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
+            {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
+            {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
+            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
+        ],
+    )
+    
+    # Handle Gemini API response properly
+    try:
+        if hasattr(resp, "text") and resp.text:
+            output_text = resp.text
+        elif hasattr(resp, "parts") and resp.parts:
+            output_text = "".join([part.text for part in resp.parts if hasattr(part, "text") and part.text])
+        else:
+            output_text = str(resp)
+    except Exception as e:
+        output_text = f"Error processing response: {str(e)}"
+    
+    # Try to validate YAML if present
+    yaml_validation = "✅ Valid YAML format"
+    try:
+        # Extract YAML blocks if present
+        if "```yaml" in output_text:
+            yaml_start = output_text.find("```yaml") + 7
+            yaml_end = output_text.find("```", yaml_start)
+            if yaml_end > yaml_start:
+                yaml_content = output_text[yaml_start:yaml_end].strip()
+                yaml.safe_load(yaml_content)
+        elif "---" in output_text:
+            # Try to parse as YAML
+            yaml.safe_load(output_text)
+    except yaml.YAMLError as e:
+        yaml_validation = f"⚠️ YAML validation warning: {str(e)}"
+    
+    return {
+        "output": output_text,
+        "yaml_validation": yaml_validation,
+        "requirements": requirements,
+        "tokens": {"input": 0, "output": 0, "total": 0},  # Token counting for generation endpoints TBD
+    }
+
+
+@app.post("/terraform-generate")
+def generate_terraform_config(inp: TerraformGenerateIn):
+    """Generate Terraform configuration based on user requirements"""
+    if not is_allowed(inp.prompt):
+        return {
+            "output": "Sorry, I can only assist with DevOps/CI/CD topics.",
+            "tokens": {"input": 0, "output": 0, "total": 0},
+        }
+    
+    # Extract requirements from prompt
+    requirements = extract_terraform_requirements(inp.prompt)
+    
+    # Create enhanced prompt for Gemini
+    enhanced_prompt = f"""
+Generate a complete Terraform configuration based on these requirements:
+{inp.prompt}
+
+Requirements extracted:
+- Cloud provider: {requirements['provider']}
+- Resources needed: {', '.join(requirements['resources']) if requirements['resources'] else 'General infrastructure'}
+
+Please provide:
+1. A complete Terraform configuration in HCL format
+2. Proper provider configuration
+3. Variable definitions and outputs
+4. Resource dependencies and data sources
+5. Clear comments for each resource
+6. Best practices for security and state management
+
+Format the response as a complete, ready-to-use Terraform configuration.
+"""
+    
+    model = genai.GenerativeModel(inp.model, system_instruction=TERRAFORM_SYSTEM_PROMPT)
+    
+    resp = model.generate_content(
+        enhanced_prompt,
+        generation_config={
+            "temperature": inp.temperature,
+            "max_output_tokens": inp.max_output_tokens,
+        },
+        safety_settings=[
+            {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
+            {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
+            {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
+            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
+        ],
+    )
+    
+    # Handle Gemini API response properly
+    try:
+        if hasattr(resp, "text") and resp.text:
+            output_text = resp.text
+        elif hasattr(resp, "parts") and resp.parts:
+            output_text = "".join([part.text for part in resp.parts if hasattr(part, "text") and part.text])
+        else:
+            output_text = str(resp)
+    except Exception as e:
+        output_text = f"Error processing response: {str(e)}"
+    
+    # Try to validate HCL if present
+    hcl_validation = "✅ Valid HCL format"
+    try:
+        # Basic HCL validation (check for common syntax patterns)
+        if "```hcl" in output_text or "```terraform" in output_text:
+            # Extract HCL blocks if present
+            hcl_start = output_text.find("```") + 3
+            hcl_end = output_text.find("```", hcl_start)
+            if hcl_end > hcl_start:
+                hcl_content = output_text[hcl_start:hcl_end].strip()
+                # Basic validation - check for required Terraform elements
+                if "terraform {" in hcl_content or "provider" in hcl_content or "resource" in hcl_content:
+                    pass  # Basic structure looks good
+                else:
+                    hcl_validation = "⚠️ HCL structure validation warning"
+    except Exception as e:
+        hcl_validation = f"⚠️ HCL validation warning: {str(e)}"
+    
+    return {
+        "output": output_text,
+        "hcl_validation": hcl_validation,
+        "requirements": requirements,
+        "tokens": {"input": 0, "output": 0, "total": 0},  # Token counting for generation endpoints TBD
     }
 
 

@@ -105,6 +105,7 @@ export default function ChatPage() {
   const [tokens, setTokens] = useState<{ input: number; output: number; total: number } | null>(null);
   const [ingestResult, setIngestResult] = useState<string>("");
   const [sources, setSources] = useState<Match[]>([]);
+  const [validationStatus, setValidationStatus] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // One-time silent bootstrap of built-in sources per browser
@@ -145,6 +146,48 @@ export default function ChatPage() {
       setAnswer(data.output || "");
       setTokens(null);
       return;
+    }
+
+    // Check for Ansible playbook generation requests
+    if (message.toLowerCase().includes('ansible') && (message.toLowerCase().includes('create') || message.toLowerCase().includes('generate') || message.toLowerCase().includes('playbook'))) {
+      try {
+        const res = await fetch("/api/ansible-generate", { 
+          method: "POST", 
+          headers: { "Content-Type": "application/json" }, 
+          body: JSON.stringify({ prompt: message }) 
+        });
+        const data = await res.json();
+        if (data?.output) {
+          setAnswer(data.output);
+          setValidationStatus(data.yaml_validation || "");
+          setSources([]);
+          setTokens(null);
+          return;
+        }
+      } catch (error) {
+        console.error("Ansible generation failed:", error);
+      }
+    }
+
+    // Check for Terraform configuration generation requests
+    if (message.toLowerCase().includes('terraform') && (message.toLowerCase().includes('create') || message.toLowerCase().includes('generate') || message.toLowerCase().includes('config'))) {
+      try {
+        const res = await fetch("/api/terraform-generate", { 
+          method: "POST", 
+          headers: { "Content-Type": "application/json" }, 
+          body: JSON.stringify({ prompt: message }) 
+        });
+        const data = await res.json();
+        if (data?.output) {
+          setAnswer(data.output);
+          setValidationStatus(data.hcl_validation || "");
+          setSources([]);
+          setTokens(null);
+          return;
+        }
+      } catch (error) {
+        console.error("Terraform generation failed:", error);
+      }
     }
 
     // Default path: vector search with Gemini answer and citations
@@ -232,7 +275,7 @@ export default function ChatPage() {
       <form className="flex gap-2 mb-4" onSubmit={(e) => { e.preventDefault(); send(); }}>
         <input
           className="flex-1 border rounded px-3 py-2"
-          placeholder={"Ask a DevOps question or request a diagram (e.g., 'Create a Jenkins pipeline diagram')"}
+          placeholder={"Ask a DevOps question, request a diagram, or ask to create Ansible playbooks/Terraform configs (e.g., 'Create a Jenkins pipeline diagram' or 'Help me create an Ansible playbook for web server setup')"}
           value={message}
           onChange={(e) => setMessage(e.target.value)}
         />
@@ -272,6 +315,19 @@ export default function ChatPage() {
           {md}
         </ReactMarkdown>
       </article>
+
+      {validationStatus && (
+        <section className="my-6">
+          <h2 className="text-lg font-semibold mb-2">Validation Status</h2>
+          <div className={`text-sm p-3 rounded border ${
+            validationStatus.includes('✅') ? 'bg-green-50 border-green-200 text-green-800' : 
+            validationStatus.includes('⚠️') ? 'bg-yellow-50 border-yellow-200 text-yellow-800' : 
+            'bg-gray-50 border-gray-200 text-gray-800'
+          }`}>
+            {validationStatus}
+          </div>
+        </section>
+      )}
       {mermaidBlocks.map((code, i) => (
         <div key={i} className="my-4 border rounded p-3 overflow-x-auto">
           <Mermaid code={code} />
