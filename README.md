@@ -26,8 +26,8 @@ ShipSense – AI DevOps assistant (CI/CD, diagrams, vector search)
 ### Sprint 3: DevOps Tools Integration (September 3rd - September 10th)
 **Goal:** Add support for major DevOps tools and platforms
 - [ ] Add support for Jenkins pipeline generation and management
-- [ ] Add support for Terraform job generation and analysis
-- [ ] Add support for Ansible playbook generation and analysis
+- [x] Add support for Terraform job generation and analysis
+- [x] Add support for Ansible playbook generation and analysis
 
 ### Sprint 4: Advanced DevOps & Argo (September 11th - September 18th)
 **Goal:** Implement advanced DevOps features and Argo ecosystem
@@ -54,8 +54,8 @@ ShipSense – AI DevOps assistant (CI/CD, diagrams, vector search)
 - [x] Implement token tracking system for input/output tokens display in UI
 
 ### Intermediate Tasks
-- [x] Add support for Jenkins pipeline generation and management
-- [x] Add support for ArgoCD, Argo Workflows, and Argo Rollouts
+- [ ] Add support for Jenkins pipeline generation and management
+- [ ] Add support for ArgoCD, Argo Workflows, and Argo Rollouts
 - [x] Add support for Terraform job generation and analysis
 - [x] Add support for Ansible playbook generation and analysis
 - [x] Integrate a pre-trained model (e.g., Google Gemini) that provides accurate results for user input
@@ -73,12 +73,13 @@ ShipSense – AI DevOps assistant (CI/CD, diagrams, vector search)
 
 ## Current Status
 - Branding: ShipSense
-- Chat: Gemini 2.5 Pro with token counts
+- Chat: Gemini 2.5 Flash/Pro with token counts and safety fallbacks
+- Code generation: Ansible playbooks and Terraform configs via specialized endpoints
 - Diagrams: Mermaid generation auto-detected from prompt (no toggle)
 - Vector DB: Pinecone ingest/search; citations shown in answers
-- Ingest: Upload `.sh`, `.tf`, `.yaml/.yml`, `.groovy` files for parsing + indexing
+- Ingest: Upload `.sh`, `.tf`, `.yaml/.yml`, `.groovy` files for parsing + indexing; URL crawl; GitHub repo ingest
 - Auth: Credentials login (Google Sign-In available on branch `UserGoogleSign-In`)
-- Ops: pm2 shortcuts via `Makefile`; Dockerfile; Kubernetes manifests
+- Ops: pm2 shortcuts via `Makefile`; Dockerfile; Kubernetes manifests; single launcher `scripts/start_all.sh`
 
 ---
 
@@ -111,6 +112,16 @@ npm install
 npm run dev
 ```
 Visit `http://localhost:3000/chat`.
+
+### One-shot start (backend + frontend)
+```
+# Put secrets in web/.env.local (at least GEMINI_API_KEY)
+bash scripts/start_all.sh
+# Frontend URL:
+#   http://localhost:3000/chat
+# Backend health:
+#   curl http://127.0.0.1:8080/
+```
 
 ### Production build
 ```
@@ -156,3 +167,12 @@ kubectl apply -f k8s/deployment.yaml
 kubectl port-forward svc/devops-chat 3000:80
 # open http://localhost:3000
 ```
+
+## Capabilities (Summary)
+- Ansible: Generate production-ready playbooks with YAML validation and safety fallbacks
+- Terraform: Generate production-ready HCL with validation and fallbacks
+- RAG: Pinecone-backed search with source citations
+- Diagrams: Auto-detected Mermaid rendering
+- Ingest: File upload, URL crawling, GitHub repo ingestion
+- Guardrails: Topic allowlist, responsible AI safety settings
+- Ops: pm2, Kubernetes manifests, single launcher script (`scripts/start_all.sh`)
