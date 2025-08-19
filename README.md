@@ -34,6 +34,9 @@ ShipSense – AI DevOps assistant (CI/CD, diagrams, vector search)
 - [ ] Add support for ArgoCD, Argo Workflows, and Argo Rollouts
 - [ ] Integrate a pre-trained model (e.g., Google Gemini) that provides accurate results for user input
 - [ ] Implement DevOps/DevSecOps process guidance and best practices
+- [ ] Add Slack integration from UI (workspace connect, channel selection, notifications)
+- [ ] Add FreshDesk and Jira integrations from UI for ticket creation when answers are insufficient
+- [ ] Implement L1 support capability: ShipSense responds with reasoning in FreshDesk/Jira tickets and handles initial triage
 
 ### Sprint 5: Testing & Polish (September 19th - September 30th)
 **Goal:** Final testing, optimization, and documentation
@@ -66,6 +69,9 @@ ShipSense – AI DevOps assistant (CI/CD, diagrams, vector search)
 - [ ] Kubernetes troubleshooting & recommendations
 - [ ] OpenShift troubleshooting & recommendations
 - [ ] AWS troubleshooting & recommendations
+- [ ] Slack integration from UI (OAuth, channel mapping, message posting)
+- [ ] FreshDesk & Jira integrations from UI (OAuth/API keys), create tickets from chat
+- [ ] L1 Support: Reasoned auto-responses to FreshDesk/Jira tickets and initial discussion handling
 - [ ] Test with real-world open-source projects for feedback and improvement
 - [ ] Polish UI/UX and add user documentation
 
