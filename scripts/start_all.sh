@@ -29,9 +29,18 @@ if ! command -v pm2 >/dev/null 2>&1; then
   fi
 fi
 
+echo "[env] Autoloading environment from $APP_DIR/.env.local if present..."
+if [ -f "$APP_DIR/.env.local" ]; then
+  # Export all variables defined in .env.local into current env
+  set -a
+  # shellcheck disable=SC1091
+  . "$APP_DIR/.env.local"
+  set +a
+fi
+
 if [ -z "${GEMINI_API_KEY:-}" ]; then
-  echo "GEMINI_API_KEY is not set in the environment. Export it and re-run." >&2
-  echo "Example: export GEMINI_API_KEY=YOUR_KEY" >&2
+  echo "GEMINI_API_KEY is not set. Add it to $APP_DIR/.env.local or export it before running." >&2
+  echo "Example: echo 'GEMINI_API_KEY=YOUR_KEY' >> $APP_DIR/.env.local" >&2
   exit 1
 fi
 
