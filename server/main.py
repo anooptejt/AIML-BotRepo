@@ -19,24 +19,26 @@ SYSTEM_POLICY = (
 
 # Ansible-specific system prompt
 ANSIBLE_SYSTEM_PROMPT = (
-    "You are an Ansible expert. Generate complete, production-ready Ansible playbooks with: "
+    "You are an Ansible expert providing technical guidance. Generate complete, production-ready Ansible playbooks with: "
     "- Proper YAML formatting and indentation "
     "- Host targeting and variable definitions "
     "- Error handling and idempotency "
     "- Best practices for security and maintainability "
     "- Clear comments explaining each task "
-    "- Appropriate task names and descriptions"
+    "- Appropriate task names and descriptions "
+    "Focus on technical implementation details and best practices for DevOps automation."
 )
 
 # Terraform-specific system prompt
 TERRAFORM_SYSTEM_PROMPT = (
-    "You are a Terraform expert. Generate complete, production-ready Terraform configurations with: "
+    "You are a Terraform expert providing technical guidance. Generate complete, production-ready Terraform configurations with: "
     "- Proper HCL syntax and formatting "
     "- Variable definitions and outputs "
     "- Resource dependencies and data sources "
     "- Best practices for security and state management "
     "- Clear comments explaining each resource "
-    "- Appropriate resource naming conventions"
+    "- Appropriate resource naming conventions "
+    "Focus on technical implementation details and best practices for infrastructure as code."
 )
 
 class ChatIn(BaseModel):
@@ -180,6 +182,26 @@ def chat(inp: ChatIn):
             output_text = resp.text
         elif hasattr(resp, "parts") and resp.parts:
             output_text = "".join([part.text for part in resp.parts if hasattr(part, "text") and part.text])
+        elif hasattr(resp, "candidates") and resp.candidates:
+            # Handle response with candidates
+            candidate = resp.candidates[0]
+            if hasattr(candidate, "content") and candidate.content:
+                if hasattr(candidate.content, "parts"):
+                    output_text = "".join([part.text for part in candidate.content.parts if hasattr(part, "text") and part.text])
+                else:
+                    output_text = str(candidate.content)
+            else:
+                output_text = str(candidate)
+        elif hasattr(resp, "finish_reason"):
+            # Handle response with finish reason
+            if resp.finish_reason == 1:  # SAFETY
+                output_text = "The request was blocked due to safety concerns. Please try rephrasing your request."
+            elif resp.finish_reason == 2:  # RECITATION
+                output_text = "The response was blocked due to recitation concerns. Please try a different approach."
+            elif resp.finish_reason == 3:  # OTHER
+                output_text = "The request could not be completed. Please try again."
+            else:
+                output_text = f"Response completed with finish reason: {resp.finish_reason}"
         else:
             output_text = str(resp)
     except Exception as e:
@@ -227,35 +249,58 @@ Please provide:
 5. Clear comments for each task
 6. Best practices for security
 
-Format the response as a complete, ready-to-use Ansible playbook.
+Format the response as a complete, ready-to-use Ansible playbook with proper YAML syntax.
+Focus on technical implementation and DevOps best practices.
 """
     
     model = genai.GenerativeModel(inp.model, system_instruction=ANSIBLE_SYSTEM_PROMPT)
     
-    resp = model.generate_content(
-        enhanced_prompt,
-        generation_config={
-            "temperature": inp.temperature,
-            "max_output_tokens": inp.max_output_tokens,
-        },
-        safety_settings=[
-            {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
-            {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
-            {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
-            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
-        ],
-    )
-    
-    # Handle Gemini API response properly
-    try:
-        if hasattr(resp, "text") and resp.text:
-            output_text = resp.text
-        elif hasattr(resp, "parts") and resp.parts:
-            output_text = "".join([part.text for part in resp.parts if hasattr(part, "text") and part.text])
-        else:
-            output_text = str(resp)
-    except Exception as e:
-        output_text = f"Error processing response: {str(e)}"
+    # Retry up to 2 times on safety/empty responses
+    attempts = 0
+    while attempts < 2:
+        resp = model.generate_content(
+            enhanced_prompt,
+            generation_config={
+                "temperature": inp.temperature,
+                "max_output_tokens": inp.max_output_tokens,
+            },
+            safety_settings=[
+                {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
+                {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
+                {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
+                {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
+            ],
+        )
+
+        # Handle Gemini API response properly
+        try:
+            if hasattr(resp, "text") and resp.text:
+                output_text = resp.text
+            elif hasattr(resp, "parts") and resp.parts:
+                output_text = "".join([part.text for part in resp.parts if hasattr(part, "text") and part.text])
+            elif hasattr(resp, "candidates") and resp.candidates:
+                # Handle response with candidates
+                candidate = resp.candidates[0]
+                if hasattr(candidate, "content") and candidate.content:
+                    if hasattr(candidate.content, "parts"):
+                        output_text = "".join([part.text for part in candidate.content.parts if hasattr(part, "text") and part.text])
+                    else:
+                        output_text = str(candidate.content)
+                else:
+                    output_text = str(candidate)
+            elif hasattr(resp, "finish_reason"):
+                output_text = ""
+            else:
+                output_text = str(resp)
+        except Exception:
+            output_text = ""
+
+        if output_text:
+            break
+        attempts += 1
+
+    if not output_text:
+        output_text = "The model could not generate content at this time. Please try again."
     
     # Try to validate YAML if present
     yaml_validation = "✅ Valid YAML format"
@@ -310,7 +355,8 @@ Please provide:
 5. Clear comments for each resource
 6. Best practices for security and state management
 
-Format the response as a complete, ready-to-use Terraform configuration.
+Format the response as a complete, ready-to-use Terraform configuration with proper HCL syntax.
+Focus on technical implementation and infrastructure as code best practices.
 """
     
     model = genai.GenerativeModel(inp.model, system_instruction=TERRAFORM_SYSTEM_PROMPT)
@@ -335,6 +381,26 @@ Format the response as a complete, ready-to-use Terraform configuration.
             output_text = resp.text
         elif hasattr(resp, "parts") and resp.parts:
             output_text = "".join([part.text for part in resp.parts if hasattr(part, "text") and part.text])
+        elif hasattr(resp, "candidates") and resp.candidates:
+            # Handle response with candidates
+            candidate = resp.candidates[0]
+            if hasattr(candidate, "content") and candidate.content:
+                if hasattr(candidate.content, "parts"):
+                    output_text = "".join([part.text for part in candidate.content.parts if hasattr(part, "text") and part.text])
+                else:
+                    output_text = str(candidate.content)
+            else:
+                output_text = str(candidate)
+        elif hasattr(resp, "finish_reason"):
+            # Handle response with finish reason
+            if resp.finish_reason == 1:  # SAFETY
+                output_text = "The request was blocked due to safety concerns. Please try rephrasing your request."
+            elif resp.finish_reason == 2:  # RECITATION
+                output_text = "The response was blocked due to recitation concerns. Please try a different approach."
+            elif resp.finish_reason == 3:  # OTHER
+                output_text = "The request could not be completed. Please try again."
+            else:
+                output_text = f"Response completed with finish reason: {resp.finish_reason}"
         else:
             output_text = str(resp)
     except Exception as e:

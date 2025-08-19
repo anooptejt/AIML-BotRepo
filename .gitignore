@@ -4,7 +4,17 @@
 **/.env.*
 !**/.env.local.example
 
+# Python virtualenv and caches
+.venv/
+**/__pycache__/
+
+# Server logs
+server/server.log
+
 # Next.js build artifacts
 web/.next/
 web/node_modules/
 web/out/
+
+# Local env for web
+web/.env.local

@@ -87,8 +87,8 @@ test-all: test-ansible test-terraform
 # Start the Python backend server
 start-backend:
 	@echo "Starting Python backend server..."
+	@if [ -z "$$GEMINI_API_KEY" ]; then echo "GEMINI_API_KEY is not set in the environment"; exit 1; fi
 	cd server && source ../.venv/bin/activate && \
-	export GEMINI_API_KEY='AIzaSyDh6qz96WaluzLAR4TK33-OdlTsxVs0HIU' && \
 	nohup python -m uvicorn main:app --host 127.0.0.1 --port 8080 > server.log 2>&1 &
 
 # Stop the Python backend server
