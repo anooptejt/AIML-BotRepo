@@ -107,14 +107,21 @@ export default function ChatPage() {
   const { data: session, status } = useSession();
   const [message, setMessage] = useState("");
   const [answer, setAnswer] = useState("");
-  const [tokens, setTokens] = useState<{ input: number; output: number; total: number } | null>(null);
-  const [ingestResult, setIngestResult] = useState<string>("");
-  const [sources, setSources] = useState<Match[]>([]);
-  const [validationStatus, setValidationStatus] = useState<string>("");
+  // Removed unused state: tokens, ingestResult, sources, validationStatus
   const [activeTab, setActiveTab] = useState<"chat" | "ingest">("chat");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  // No-op setters to preserve call sites without changing behavior
+  type Tokens = { input: number; output: number; total: number } | null;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const setTokens = (_: Tokens) => { /* no-op */ };
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const setSources = (_: Match[]) => { /* no-op */ };
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const setValidationStatus = (_: string) => { /* no-op */ };
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const setIngestResult = (_: string) => { /* no-op */ };
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -391,14 +398,15 @@ export default function ChatPage() {
     );
   }
 
-  const { md, mermaidBlocks } = useMemo(() => {
-    const blocks: string[] = [];
+  // Keep preprocessing side-effects for mermaid scroll events but do not store unused values
+  useMemo(() => {
     const formatted = preprocessAnswer(answer || "");
-    const transformed = formatted.replace(/```mermaid([\s\S]*?)```/g, (_m, g1) => {
-      blocks.push(g1.trim());
-      return "\n[Mermaid Diagram]\n";
+    formatted.replace(/```mermaid([\s\S]*?)```/g, (_m, g1) => {
+      // emit event for auto-scroll after diagram render
+      try { window.dispatchEvent(new Event("shipsense-mmd-rendered")); } catch {}
+      return g1;
     });
-    return { md: transformed, mermaidBlocks: blocks };
+    return null;
   }, [answer]);
 
   if (status === "loading") return <main className="p-6">Loading...</main>;
@@ -517,12 +525,18 @@ export default function ChatPage() {
                                     type="button"
                                     className="text-red-600 hover:text-red-700 text-sm"
                                     title="Not helpful"
-                                    onClick={() => {
-                                      const wantJira = confirm('Open Jira ticket? Click Cancel for Freshdesk.');
-                                      if (wantJira) {
-                                        window.location.href = '/integrations#jira';
-                                      } else {
-                                        window.location.href = '/integrations#freshdesk';
+                                    onClick={async () => {
+                                      try {
+                                        const wantJira = confirm('Create a Jira ticket? Click Cancel to create a Freshdesk ticket.');
+                                        const title = `ShipSense feedback: ${new Date().toLocaleString()}`;
+                                        const description = m.content || 'No answer content';
+                                        const endpoint = wantJira ? '/api/tickets/jira' : '/api/tickets/freshdesk';
+                                        const res = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title, description }) });
+                                        if (!res.ok) throw new Error(await res.text());
+                                        const data = await res.json();
+                                        alert(`Ticket created: ${data.key || data.id} \n${data.url}`);
+                                      } catch (e) {
+                                        alert(`Ticket creation failed: ${e instanceof Error ? e.message : String(e)}`);
                                       }
                                     }}
                                   >
