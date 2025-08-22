@@ -29,6 +29,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <nav className="p-4 border-b flex gap-4">
             <Link href="/">Home</Link>
             <Link href="/chat">Chat</Link>
+            <Link href="/integrations">Integrations</Link>
           </nav>
           {children}
         </Providers>

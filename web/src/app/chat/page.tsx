@@ -501,7 +501,36 @@ export default function ChatPage() {
                             <div className="text-xs font-medium text-gray-500 mb-2">
                               {isUser ? 'You' : 'ShipSense Response'}
                             </div>
-                            {isUser ? <div>{m.content}</div> : renderAssistant(m.content)}
+                            {isUser ? <div>{m.content}</div> : (
+                              <div>
+                                {renderAssistant(m.content)}
+                                <div className="flex items-center gap-3 mt-2">
+                                  <button
+                                    type="button"
+                                    className="text-green-700 hover:text-green-800 text-sm"
+                                    title="Helpful"
+                                    onClick={() => { /* future: send feedback */ }}
+                                  >
+                                    👍
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="text-red-600 hover:text-red-700 text-sm"
+                                    title="Not helpful"
+                                    onClick={() => {
+                                      const wantJira = confirm('Open Jira ticket? Click Cancel for Freshdesk.');
+                                      if (wantJira) {
+                                        window.location.href = '/integrations#jira';
+                                      } else {
+                                        window.location.href = '/integrations#freshdesk';
+                                      }
+                                    }}
+                                  >
+                                    👎
+                                  </button>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         </div>
                       );
