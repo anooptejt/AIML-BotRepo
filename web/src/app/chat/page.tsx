@@ -106,6 +106,7 @@ export default function ChatPage() {
   const [ingestResult, setIngestResult] = useState<string>("");
   const [sources, setSources] = useState<Match[]>([]);
   const [validationStatus, setValidationStatus] = useState<string>("");
+  const [activeTab, setActiveTab] = useState<"chat" | "ingest">("chat");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // One-time silent bootstrap of built-in sources per browser
@@ -250,117 +251,148 @@ export default function ChatPage() {
   }
 
   return (
-    <main className="min-h-screen p-6 max-w-3xl mx-auto">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-semibold">ShipSense</h1>
-        <div className="text-sm text-gray-600 flex items-center gap-3">
-          <span>{session.user?.email || session.user?.name}</span>
-          <button className="underline" onClick={() => signOut({ callbackUrl: "/chat" })}>Sign out</button>
-        </div>
-      </div>
-
-      <div className="flex items-center gap-3 mb-3">
-        <input ref={fileInputRef} type="file" multiple accept=".sh,.tf,.yaml,.yml,.groovy" onChange={onUpload} className="hidden" />
-        <button
-          className="border rounded px-3 py-2"
-          type="button"
-          aria-label="Attach files"
-          title="Attach files"
-          onClick={() => fileInputRef.current?.click()}
-        >
-          📎 Attach
-        </button>
-      </div>
-
-      <form className="flex gap-2 mb-4" onSubmit={(e) => { e.preventDefault(); send(); }}>
-        <input
-          className="flex-1 border rounded px-3 py-2"
-          placeholder={"Ask a DevOps question, request a diagram, or ask to create Ansible playbooks/Terraform configs (e.g., 'Create a Jenkins pipeline diagram' or 'Help me create an Ansible playbook for web server setup')"}
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-        />
-        <button type="submit" className="bg-black text-white px-4 py-2 rounded">
-          Send
-        </button>
-      </form>
-
-      {tokens && (
-        <div className="text-sm text-gray-600 mb-2">Tokens: in {tokens.input} / out {tokens.output} / total {tokens.total}</div>
-      )}
-
-      {answer && <h2 className="text-lg font-semibold mb-2">Answer</h2>}
-      <article className="prose">
-        <ReactMarkdown
-          remarkPlugins={[remarkGfm]}
-          components={{
-            code({ inline, className, children, ...props }: { inline?: boolean; className?: string; children?: React.ReactNode } & HTMLAttributes<HTMLElement>) {
-              const text = String(children ?? "");
-              const isShort = text.trim().split("\n").length === 1 && text.trim().length <= 50;
-              if (inline || isShort) {
-                return <code className="bg-gray-100 rounded px-1 py-0.5" {...props}>{text}</code>;
-              }
-              const lang = getLanguage(className) || "text";
-              return (
-                <div className="rounded border border-gray-200 overflow-hidden mb-4">
-                  <div className="flex items-center justify-between bg-gray-50 px-3 py-1.5 border-b border-gray-200 text-xs text-gray-600">
-                    <span>{lang}</span>
-                    <CopyButton text={text} />
-                  </div>
-                  <pre className="bg-white text-gray-900 text-sm p-3 overflow-x-auto"><code className={className} {...props}>{text}</code></pre>
-                </div>
-              );
-            },
-          }}
-        >
-          {md}
-        </ReactMarkdown>
-      </article>
-
-      {validationStatus && (
-        <section className="my-6">
-          <h2 className="text-lg font-semibold mb-2">Validation Status</h2>
-          <div className={`text-sm p-3 rounded border ${
-            validationStatus.includes('✅') ? 'bg-green-50 border-green-200 text-green-800' : 
-            validationStatus.includes('⚠️') ? 'bg-yellow-50 border-yellow-200 text-yellow-800' : 
-            'bg-gray-50 border-gray-200 text-gray-800'
-          }`}>
-            {validationStatus}
+    <main className="min-h-screen flex flex-col">
+      <div className="p-6 max-w-3xl mx-auto w-full">
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-2xl font-semibold">ShipSense</h1>
+          <div className="text-sm text-gray-600 flex items-center gap-3">
+            <span>{session.user?.email || session.user?.name}</span>
+            <button className="underline" onClick={() => signOut({ callbackUrl: "/chat" })}>Sign out</button>
           </div>
-        </section>
-      )}
-      {mermaidBlocks.map((code, i) => (
-        <div key={i} className="my-4 border rounded p-3 overflow-x-auto">
-          <Mermaid code={code} />
         </div>
-      ))}
+        <div className="mb-4 border-b">
+          <nav className="flex gap-4">
+            <button
+              className={`px-3 py-2 -mb-px border-b-2 ${activeTab === 'chat' ? 'border-black font-medium' : 'border-transparent text-gray-600'}`}
+              onClick={() => setActiveTab('chat')}
+              type="button"
+            >
+              Chat
+            </button>
+            <button
+              className={`px-3 py-2 -mb-px border-b-2 ${activeTab === 'ingest' ? 'border-black font-medium' : 'border-transparent text-gray-600'}`}
+              onClick={() => setActiveTab('ingest')}
+              type="button"
+            >
+              Ingest
+            </button>
+          </nav>
+        </div>
+      </div>
 
-      {sources.length > 0 && (
-        <section className="my-6">
-          <h2 className="text-lg font-semibold mb-2">Sources</h2>
-          <ul className="text-sm list-disc pl-5">
-            {sources.map((m, i) => (
-              <li key={i}>{m.metadata?.filename} (chunk {m.metadata?.chunk}) — score {m.score?.toFixed(3)}</li>
-            ))}
-          </ul>
-        </section>
-      )}
+      <div className="flex-1">
+        <div className="p-6 max-w-3xl mx-auto w-full pb-40">
+          {activeTab === 'chat' ? (
+            <>
+              {tokens && (
+                <div className="text-sm text-gray-600 mb-2">Tokens: in {tokens.input} / out {tokens.output} / total {tokens.total}</div>
+              )}
 
-      {ingestResult && (
-        <section className="my-6">
-          <h2 className="text-lg font-semibold mb-2">Ingest summaries</h2>
-          <pre className="whitespace-pre-wrap text-sm bg-gray-50 border rounded p-3">{ingestResult}</pre>
-        </section>
-      )}
+              {answer && <h2 className="text-lg font-semibold mb-2">Answer</h2>}
+              <article className="prose">
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    code({ inline, className, children, ...props }: { inline?: boolean; className?: string; children?: React.ReactNode } & HTMLAttributes<HTMLElement>) {
+                      const text = String(children ?? "");
+                      const isShort = text.trim().split("\n").length === 1 && text.trim().length <= 50;
+                      if (inline || isShort) {
+                        return <code className="bg-gray-100 rounded px-1 py-0.5" {...props}>{text}</code>;
+                      }
+                      const lang = getLanguage(className) || "text";
+                      return (
+                        <div className="rounded border border-gray-200 overflow-hidden mb-4">
+                          <div className="flex items-center justify-between bg-gray-50 px-3 py-1.5 border-b border-gray-200 text-xs text-gray-600">
+                            <span>{lang}</span>
+                            <CopyButton text={text} />
+                          </div>
+                          <pre className="bg-white text-gray-900 text-sm p-3 overflow-x-auto"><code className={className} {...props}>{text}</code></pre>
+                        </div>
+                      );
+                    },
+                  }}
+                >
+                  {md}
+                </ReactMarkdown>
+              </article>
 
-      <section className="my-8">
-        <h2 className="text-lg font-semibold mb-2">Crawl URLs (docs)</h2>
-        <UrlCrawler />
-      </section>
+              {validationStatus && (
+                <section className="my-6">
+                  <h2 className="text-lg font-semibold mb-2">Validation Status</h2>
+                  <div className={`text-sm p-3 rounded border ${
+                    validationStatus.includes('✅') ? 'bg-green-50 border-green-200 text-green-800' : 
+                    validationStatus.includes('⚠️') ? 'bg-yellow-50 border-yellow-200 text-yellow-800' : 
+                    'bg-gray-50 border-gray-200 text-gray-800'
+                  }`}>
+                    {validationStatus}
+                  </div>
+                </section>
+              )}
+              {mermaidBlocks.map((code, i) => (
+                <div key={i} className="my-4 border rounded p-3 overflow-x-auto">
+                  <Mermaid code={code} />
+                </div>
+              ))}
 
-      <section className="my-8">
-        <h2 className="text-lg font-semibold mb-2">Ingest GitHub Repo</h2>
-        <GitHubIngest />
-      </section>
+              {sources.length > 0 && (
+                <section className="my-6">
+                  <h2 className="text-lg font-semibold mb-2">Sources</h2>
+                  <ul className="text-sm list-disc pl-5">
+                    {sources.map((m, i) => (
+                      <li key={i}>{m.metadata?.filename} (chunk {m.metadata?.chunk}) — score {m.score?.toFixed(3)}</li>
+                    ))}
+                  </ul>
+                </section>
+              )}
+
+              {ingestResult && (
+                <section className="my-6">
+                  <h2 className="text-lg font-semibold mb-2">Ingest summaries</h2>
+                  <pre className="whitespace-pre-wrap text-sm bg-gray-50 border rounded p-3">{ingestResult}</pre>
+                </section>
+              )}
+            </>
+          ) : (
+            <>
+              <section className="my-2">
+                <h2 className="text-lg font-semibold mb-2">Crawl URLs (docs)</h2>
+                <UrlCrawler />
+              </section>
+              <section className="my-8">
+                <h2 className="text-lg font-semibold mb-2">Ingest GitHub Repo</h2>
+                <GitHubIngest />
+              </section>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Sticky bottom input bar */}
+      <div className="fixed bottom-0 left-0 right-0 border-t bg-white">
+        <div className="p-3 max-w-3xl mx-auto w-full">
+          <input ref={fileInputRef} type="file" multiple accept=".sh,.tf,.yaml,.yml,.groovy" onChange={onUpload} className="hidden" />
+          <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); send(); }}>
+            <button
+              className="border rounded px-3 py-2"
+              type="button"
+              aria-label="Attach files"
+              title="Attach files"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              📎 Attach
+            </button>
+            <input
+              className="flex-1 border rounded px-3 py-2"
+              placeholder={"Ask a DevOps question, request a diagram, or ask to create Ansible playbooks/Terraform configs (e.g., 'Create a Jenkins pipeline diagram' or 'Help me create an Ansible playbook for web server setup')"}
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+            />
+            <button type="submit" className="bg-black text-white px-4 py-2 rounded">
+              Send
+            </button>
+          </form>
+        </div>
+      </div>
     </main>
   );
 }
