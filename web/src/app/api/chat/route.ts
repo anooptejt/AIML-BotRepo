@@ -193,6 +193,164 @@ function maybeTopicPrimer(prompt: string): string | null {
   return null;
 }
 
+// Rich, project-level primers (more explanatory, with headings and bullets)
+function maybeProjectPrimer(prompt: string): string | null {
+  const p = prompt.toLowerCase();
+  const bullets = (lines: string[]) => lines.join("\n");
+
+  // Argo Project overview (Workflows, CD, Events, Rollouts)
+  const mentionsArgoProject = (p.includes("argo project") || (p.includes("argo") && p.includes("project"))) && !p.includes("argocd") && !p.includes("rollouts") && !p.includes("workflows") && !p.includes("events");
+  if (mentionsArgoProject) {
+    return bullets([
+      "## Argo Project — Overview",
+      "",
+      "- CNCF project focused on cloud‑native workflows, GitOps, and automation for Kubernetes.",
+      "- Helps teams run and manage workloads with strong focus on CI/CD and progressive delivery.",
+      "",
+      "### Key Components",
+      "- **Argo Workflows**: Kubernetes‑native workflow engine (DAGs/steps) for batch/data/CI jobs.",
+      "  - Define workflows as CRDs; scale with K8s; artifacts/logging integrations.",
+      "- **Argo CD**: GitOps continuous delivery for Kubernetes.",
+      "  - Sync cluster state from Git; rollbacks; multi‑env/multi‑cluster; RBAC and SSO.",
+      "- **Argo Events**: Event‑driven automation for K8s.",
+      "  - Triggers workflows/pipelines on Git, webhooks, S3, Kafka, schedules, etc.",
+      "- **Argo Rollouts**: Progressive delivery controller.",
+      "  - Canary/blue‑green/experiments, metric analysis, traffic shaping, pause/resume.",
+      "",
+      "### When to Use",
+      "- Need GitOps deployments with auditability and quick rollback (Argo CD).",
+      "- Want Kubernetes‑native workflow engine for data/ML/CI jobs (Workflows).",
+      "- Require event‑driven triggers to orchestrate pipelines (Events).",
+      "- Desire safe, controlled releases with canary/blue‑green (Rollouts).",
+      "",
+      "### Getting Started",
+      "1. Install core component(s) with Helm or manifests.",
+      "2. For Argo CD: create an Application that points to your Git repo/paths.",
+      "3. For Workflows: define Workflow/Template CRDs and submit to the cluster.",
+      "4. For Rollouts: replace Deployments with Rollout CRDs and configure analysis.",
+      "5. Add RBAC/SSO and observability (Prometheus/Grafana, logs/traces) as needed.",
+      "",
+      "### Official Docs",
+      "- `https://argo-cd.readthedocs.io`",
+      "- `https://argo-workflows.readthedocs.io`",
+      "- `https://argoproj.github.io/argo-rollouts`",
+      "- `https://argoproj.github.io/argo-events`",
+    ]);
+  }
+
+  return null;
+}
+
+// Detect tool/topic keyword from prompt
+function detectTopic(prompt: string): "devops" | "devsecops" | "terraform" | "ansible" | "jenkins" | "argocd" | "kubernetes" | "helm" | "cicd" | null {
+  const p = prompt.toLowerCase();
+  if (p.includes("devsecops")) return "devsecops";
+  if (p.includes("devops")) return "devops";
+  if (p.includes("terraform")) return "terraform";
+  if (p.includes("ansible")) return "ansible";
+  if (p.includes("jenkins")) return "jenkins";
+  if (p.includes("argo cd") || p.includes("argocd") || p.includes("argo\ncd")) return "argocd";
+  if (p.includes("kubernetes") || p.includes("k8s")) return "kubernetes";
+  if (p.includes("helm")) return "helm";
+  if (p.includes("ci/cd") || p.includes("cicd") || p.includes("ci cd")) return "cicd";
+  return null;
+}
+
+// Curated responses for Who/Why questions to avoid generic overlaps
+function maybeWhoWhyPrimer(prompt: string): string | null {
+  const p = prompt.toLowerCase();
+  const topic = detectTopic(prompt);
+  const isWho = /\bwho\b/.test(p);
+  const isWhy = /\bwhy\b/.test(p) || /should i\s+use/.test(p);
+  if (!topic || (!isWho && !isWhy)) return null;
+
+  const header = (t: string) => (isWho ? `### Who is ${t} for?` : `### Why use ${t}?`);
+  const join = (a: string[]) => a.join("\n");
+
+  if (topic === "devops") {
+    return join([
+      header("DevOps"),
+      "",
+      isWho
+        ? "- Platform/SRE teams: build and operate delivery platforms.\n- Developers: own app pipelines, quality, and deploys.\n- QA/Release managers: automate checks and gates.\n- Security (DevSecOps): shift‑left scans, policies, and supply‑chain controls.\n- Leadership: faster lead time, reliability, and visibility via metrics (DORA)."
+        : "- Faster delivery: shorter lead time, higher deployment frequency.\n- Quality: automated tests, observability, fast rollback.\n- Reliability: SLOs, error budgets, progressive delivery.\n- Security: shift‑left (SAST/DAST/SCA), policy‑as‑code, SBOMs.\n- Collaboration: trunk/PR flows, Git as source of truth." ,
+    ]);
+  }
+  if (topic === "devsecops") {
+    return join([
+      header("DevSecOps"),
+      "",
+      isWho
+        ? "- Security engineers working with dev/ops to codify controls.\n- Platform teams embedding scanners into CI/CD.\n- Developers accountable for secure code and dependencies."
+        : "- Reduce risk: secrets, dependency, and IaC misconfig scans early.\n- Compliance: auditable policies and attestations.\n- Cost: fix vulnerabilities earlier, avoid rework.",
+    ]);
+  }
+  if (topic === "terraform") {
+    return join([
+      header("Terraform"),
+      "",
+      isWho
+        ? "- Platform/Cloud engineers managing infra across accounts/regions.\n- SRE/DevOps teams composing reusable modules.\n- App teams consuming opinionated infra via modules."
+        : "- Consistency: declarative IaC with reviews and plans.\n- Reusability: modules and registries.\n- Multi‑cloud: providers for AWS/Azure/GCP and more.\n- Safety: plan/apply, drift detection, remote state/locking.",
+    ]);
+  }
+  if (topic === "ansible") {
+    return join([
+      header("Ansible"),
+      "",
+      isWho
+        ? "- Ops teams configuring OS, packages, services.\n- App teams orchestrating deploy steps.\n- Network teams using collections for devices."
+        : "- Agentless: quick adoption over SSH/WinRM.\n- Idempotent tasks with rich module ecosystem.\n- Orchestrate day‑2 operations and patching.",
+    ]);
+  }
+  if (topic === "jenkins") {
+    return join([
+      header("Jenkins"),
+      "",
+      isWho
+        ? "- Teams needing self‑hosted CI with custom agents and plugins."
+        : "- Flexibility: plugins and shared libraries.\n- Control: on‑prem, air‑gapped, custom agents.",
+    ]);
+  }
+  if (topic === "argocd") {
+    return join([
+      header("Argo CD"),
+      "",
+      isWho
+        ? "- Kubernetes platform/app teams practicing GitOps."
+        : "- Safety: declarative desired state with easy rollback.\n- Auditability: Git history as deployment record.\n- Scalability: multi‑env/multi‑cluster sync.",
+    ]);
+  }
+  if (topic === "kubernetes") {
+    return join([
+      header("Kubernetes"),
+      "",
+      isWho
+        ? "- Teams running containerized workloads needing HA and scaling."
+        : "- Orchestration: scheduling, scaling, self‑healing.\n- Ecosystem: service mesh, operators, CNCF tooling.",
+    ]);
+  }
+  if (topic === "helm") {
+    return join([
+      header("Helm"),
+      "",
+      isWho
+        ? "- Platform/App teams distributing and templating K8s apps."
+        : "- Packaging: versioned charts, values overrides, dependencies.",
+    ]);
+  }
+  if (topic === "cicd") {
+    return join([
+      header("CI/CD"),
+      "",
+      isWho
+        ? "- Any software team shipping frequently."
+        : "- Speed + quality: continuous testing and delivery.\n- Repeatability: pipelines as code and policy gates.",
+    ]);
+  }
+  return null;
+}
+
 function isCanIQuestion(prompt: string): boolean {
   return /^\s*can\s+i\b/i.test(prompt || "");
 }
@@ -386,6 +544,12 @@ export async function POST(req: NextRequest) {
       return Response.json({ output: OUT_OF_SCOPE_MESSAGE, tokens: { input: 0, output: 0, total: 0 }, blocked: false });
     }
 
+    // Greet quickly on simple salutations
+    if (/^\s*(hi|hello|hey|hola|namaste)\b/i.test(message || "")) {
+      const greeting = `Hi there! I'm ShipSense — a DevOps/CI-CD assistant.\n\n- I can help design and troubleshoot pipelines\n- Generate Terraform/Ansible with validation\n- Explain DevOps/DevSecOps processes\n- Create Mermaid diagrams for workflows\n\nAsk me anything DevOps!`;
+      return Response.json({ output: greeting, blocked: false, tokens: { input: 0, output: 0, total: 0 } });
+    }
+
     // Comparison primers for "X vs Y" type queries
     const comp = parseComparison(message);
     if (comp) {
@@ -395,9 +559,11 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Immediate primers for Can I / conceptual / topic-specific questions
+    // Immediate primers for Can I / Who vs Why / conceptual / topic-specific questions
     const canI = isCanIQuestion(message) ? maybeCanIPrimer(message) : null;
-    const primer = canI || maybeDevOpsPrimer(message) || maybeTopicPrimer(message);
+    const whoWhy = maybeWhoWhyPrimer(message);
+    const projectPrimer = maybeProjectPrimer(message);
+    const primer = canI || whoWhy || projectPrimer || maybeDevOpsPrimer(message) || maybeTopicPrimer(message);
     if (primer) {
       return Response.json({ output: primer, blocked: false, tokens: { input: 0, output: 0, total: 0 } });
     }
@@ -409,7 +575,9 @@ export async function POST(req: NextRequest) {
       ? `Compare ${comp.a} vs ${comp.b} in structured bullet points: purpose, model, strengths, limitations, when to choose each, how they work together. Keep it concise and actionable.`
       : isCanIQuestion(message)
         ? `Answer with an explicit Yes/No first line. Then structured bullet points: Why, How (steps/commands), prerequisites, risks, alternatives.\n\nQuestion: ${message}`
-        : message;
+        : /\bwho\b/i.test(message) || /\bwhy\b/i.test(message)
+          ? `Answer the specific intent (${/\bwho\b/i.test(message) ? 'WHO' : 'WHY'}) for the topic referred. Use headings (##), bulleted lists, and short paragraphs. Provide 5-8 bullet points, concise and scannable.\n\nQuestion: ${message}`
+          : message;
 
     let inputTokens = 0;
     try {

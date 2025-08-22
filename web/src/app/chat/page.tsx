@@ -10,6 +10,7 @@ type IngestItem = { name: string; summary: string };
 
 type Match = { id?: string; score?: number; metadata?: { filename?: string; chunk?: number } };
 type ChatMessage = { id: string; role: "user" | "assistant"; content: string; pending?: boolean };
+type Conversation = { id: string; title: string; createdAt: number; updatedAt: number; messages: ChatMessage[] };
 
 function Mermaid({ code }: { code: string }) {
   const [html, setHtml] = useState("");
@@ -20,7 +21,10 @@ function Mermaid({ code }: { code: string }) {
     mermaid
       .render(id, code)
       .then(({ svg }) => {
-        if (mounted) setHtml(svg);
+        if (mounted) {
+          setHtml(svg);
+          try { setTimeout(() => window.dispatchEvent(new Event("shipsense-mmd-rendered")), 0); } catch {}
+        }
       })
       .catch(() => setHtml("<em>Failed to render diagram</em>"));
     return () => {
@@ -109,6 +113,10 @@ export default function ChatPage() {
   const [validationStatus, setValidationStatus] = useState<string>("");
   const [activeTab, setActiveTab] = useState<"chat" | "ingest">("chat");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const messagesContainerRef = useRef<HTMLDivElement | null>(null);
+  const bottomRef = useRef<HTMLDivElement | null>(null);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // One-time silent bootstrap of built-in sources per browser
@@ -119,6 +127,85 @@ export default function ChatPage() {
         try { localStorage.setItem(key, "1"); } catch {}
       });
     }
+  }, []);
+
+  // Conversation helpers
+  function generateId() {
+    return Math.random().toString(36).slice(2) + Date.now().toString(36);
+  }
+
+  function saveConversations(next: Conversation[] | ((prev: Conversation[]) => Conversation[])) {
+    setConversations((prev) => {
+      const computed = typeof next === "function" ? (next as (p: Conversation[]) => Conversation[])(prev) : next;
+      try { localStorage.setItem("shipsense_conversations_v1", JSON.stringify(computed)); } catch {}
+      return computed;
+    });
+  }
+
+  // Load conversations from storage
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("shipsense_conversations_v1");
+      if (raw) {
+        const parsed = JSON.parse(raw) as Conversation[];
+        if (Array.isArray(parsed) && parsed.length) {
+          setConversations(parsed);
+          setActiveConversationId(parsed[0].id);
+          setMessages(parsed[0].messages || []);
+          return;
+        }
+      }
+    } catch {}
+    // bootstrap empty conversation
+    const id = generateId();
+    const empty: Conversation = { id, title: "New chat", createdAt: Date.now(), updatedAt: Date.now(), messages: [] };
+    saveConversations([empty]);
+    setActiveConversationId(id);
+    setMessages([]);
+  }, []);
+
+  function updateActiveConversationMessages(mutator: (prev: ChatMessage[]) => ChatMessage[]) {
+    const id = activeConversationId;
+    if (!id) return;
+    saveConversations((prevConvs) => prevConvs.map((c) => {
+      if (c.id !== id) return c;
+      const msgs = mutator(c.messages || []);
+      return { ...c, messages: msgs, updatedAt: Date.now() };
+    }));
+  }
+
+  function startNewConversation() {
+    const id = generateId();
+    const conv: Conversation = { id, title: "New chat", createdAt: Date.now(), updatedAt: Date.now(), messages: [] };
+    const next = [conv, ...conversations];
+    saveConversations(next);
+    setActiveConversationId(id);
+    setMessages([]);
+    setAnswer("");
+    setSources([]);
+    setValidationStatus("");
+  }
+
+  function switchConversation(id: string) {
+    const found = conversations.find((c) => c.id === id);
+    if (!found) return;
+    setActiveConversationId(id);
+    setMessages(found.messages || []);
+    setAnswer("");
+    setSources([]);
+    setValidationStatus("");
+    // allow state to apply, then scroll
+    setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "auto", block: "end" }), 0);
+  }
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [messages]);
+
+  useEffect(() => {
+    const onRendered = () => bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    window.addEventListener("shipsense-mmd-rendered", onRendered);
+    return () => window.removeEventListener("shipsense-mmd-rendered", onRendered);
   }, []);
 
   // Local login form state
@@ -142,10 +229,25 @@ export default function ChatPage() {
     const pendingId = "pending-" + Date.now().toString(36);
     // Optimistic render: show user message immediately and a pending assistant indicator
     setMessages((prev) => [
+      ...prev,
       { id: pendingId + "-user", role: "user", content: message },
       { id: pendingId, role: "assistant", content: "Generating...", pending: true },
-      ...prev,
     ]);
+    // persist to conversation
+    updateActiveConversationMessages((prev) => [
+      ...prev,
+      { id: pendingId + "-user", role: "user", content: message },
+      { id: pendingId, role: "assistant", content: "Generating...", pending: true },
+    ]);
+    // auto-title
+    if (activeConversationId) {
+      const title = message.slice(0, 60);
+      saveConversations((prevConvs) => prevConvs.map((c) => (
+        c.id === activeConversationId && (c.title === "New chat" || !c.title)
+          ? { ...c, title }
+          : c
+      )));
+    }
     setAnswer("");
     setSources([]);
     const userMessage = message;
@@ -159,6 +261,7 @@ export default function ChatPage() {
       setAnswer(output);
       setTokens(null);
       setMessages((prev) => prev.map((m) => m.id === pendingId ? { ...m, content: output, pending: false } : m));
+      updateActiveConversationMessages((prev) => prev.map((m) => m.id === pendingId ? { ...m, content: output, pending: false } : m));
       return;
     }
 
@@ -177,6 +280,7 @@ export default function ChatPage() {
           setSources([]);
           setTokens(null);
           setMessages((prev) => prev.map((m) => m.id === pendingId ? { ...m, content: data.output, pending: false } : m));
+          updateActiveConversationMessages((prev) => prev.map((m) => m.id === pendingId ? { ...m, content: data.output, pending: false } : m));
           return;
         }
       } catch (error) {
@@ -199,6 +303,7 @@ export default function ChatPage() {
           setSources([]);
           setTokens(null);
           setMessages((prev) => prev.map((m) => m.id === pendingId ? { ...m, content: data.output, pending: false } : m));
+          updateActiveConversationMessages((prev) => prev.map((m) => m.id === pendingId ? { ...m, content: data.output, pending: false } : m));
           return;
         }
       } catch (error) {
@@ -215,6 +320,7 @@ export default function ChatPage() {
         setSources((data.matches || []) as Match[]);
         setTokens(null);
         setMessages((prev) => prev.map((m) => m.id === pendingId ? { ...m, content: data.answer, pending: false } : m));
+        updateActiveConversationMessages((prev) => prev.map((m) => m.id === pendingId ? { ...m, content: data.answer, pending: false } : m));
         return;
       }
     } catch {}
@@ -226,6 +332,7 @@ export default function ChatPage() {
     setAnswer(output);
     setTokens(data.tokens || null);
     setMessages((prev) => prev.map((m) => m.id === pendingId ? { ...m, content: output, pending: false } : m));
+    updateActiveConversationMessages((prev) => prev.map((m) => m.id === pendingId ? { ...m, content: output, pending: false } : m));
   }
 
   async function onUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -311,102 +418,137 @@ export default function ChatPage() {
   }
 
   return (
-    <main className="min-h-screen flex flex-col">
-      <div className="p-6 max-w-3xl mx-auto w-full">
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-semibold">ShipSense</h1>
-          <div className="text-sm text-gray-600 flex items-center gap-3">
-            <span>{session.user?.email || session.user?.name}</span>
-            <button className="underline" onClick={() => signOut({ callbackUrl: "/chat" })}>Sign out</button>
+    <main className="min-h-screen flex">
+      {/* Sidebar: conversations */}
+      <aside className="hidden md:flex w-64 border-r flex-col sticky top-0 h-screen">
+        <div className="p-4 border-b">
+          <div className="text-sm font-semibold mb-2">ShipSense</div>
+          <div className="text-xs text-gray-500 mb-3">Chats</div>
+          <div className="flex flex-col gap-2">
+            <button className="text-sm border rounded px-3 py-1" onClick={startNewConversation} type="button">New chat</button>
+            <button className="text-sm border rounded px-3 py-1" onClick={() => setActiveTab('ingest')} type="button">Ingest</button>
           </div>
         </div>
-        <div className="mb-4 border-b">
-          <nav className="flex gap-4">
-            <button
-              className={`px-3 py-2 -mb-px border-b-2 ${activeTab === 'chat' ? 'border-black font-medium' : 'border-transparent text-gray-600'}`}
-              onClick={() => setActiveTab('chat')}
-              type="button"
-            >
-              Chat
-            </button>
-            <button
-              className={`px-3 py-2 -mb-px border-b-2 ${activeTab === 'ingest' ? 'border-black font-medium' : 'border-transparent text-gray-600'}`}
-              onClick={() => setActiveTab('ingest')}
-              type="button"
-            >
-              Ingest
-            </button>
-          </nav>
+        <div className="flex-1 overflow-auto">
+          <ul className="p-2 space-y-1">
+            {conversations.map((c) => (
+              <li key={c.id}>
+                <div className={`group flex items-start gap-2 w-full px-3 py-2 rounded hover:bg-gray-50 ${c.id === activeConversationId ? 'bg-gray-100' : ''}`}>
+                  <button
+                    type="button"
+                    onClick={() => switchConversation(c.id)}
+                    className="flex-1 text-left"
+                    title={c.title}
+                  >
+                    <div className="text-sm truncate">{c.title || 'Untitled'}</div>
+                    <div className="text-xs text-gray-500">{new Date(c.updatedAt).toLocaleString()}</div>
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Delete chat"
+                    title="Delete chat"
+                    className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-600"
+                    onClick={() => saveConversations((prev) => prev.filter((x) => x.id !== c.id))}
+                  >
+                    🗑️
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
         </div>
-      </div>
+      </aside>
 
-      <div className="flex-1">
-        <div className="p-6 max-w-3xl mx-auto w-full pb-40">
-          {activeTab === 'chat' ? (
-            <>
-              {messages.length > 0 && (
-                <section className="mb-4 space-y-2">
-                  {messages.map((m) => (
-                    <div
-                      key={m.id}
-                      className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                    >
-                      <div
-                        className={`max-w-[85%] rounded-xl px-3 py-2 text-sm border ${
-                          m.role === 'user'
-                            ? 'bg-blue-50 border-blue-200 text-blue-800'
-                            : 'bg-white border-gray-200 text-black'
-                        } ${m.pending ? 'opacity-70 italic' : ''}`}
-                      >
-                        <div className="text-xs font-medium text-gray-500 mb-1">
-                          {m.role === 'user' ? 'You' : 'ShipSense Response'}
+      <div className="flex-1 flex flex-col">
+        <div className="sticky top-0 z-10 bg-white border-b">
+          <div className="p-6 max-w-3xl mx-auto w-full flex items-center justify-between">
+            <h1 className="text-2xl font-semibold">ShipSense</h1>
+            <div className="text-sm text-gray-600 flex items-center gap-3">
+              <span>{session.user?.email || session.user?.name}</span>
+              <button className="underline" onClick={() => signOut({ callbackUrl: "/chat" })}>Sign out</button>
+            </div>
+          </div>
+          <div className="px-6 max-w-3xl mx-auto w-full border-b">
+            <nav className="flex gap-4 justify-center">
+              <button
+                className={`px-3 py-2 -mb-px border-b-2 ${activeTab === 'chat' ? 'border-black font-medium' : 'border-transparent text-gray-600'}`}
+                onClick={() => setActiveTab('chat')}
+                type="button"
+              >
+                Chat
+              </button>
+            </nav>
+          </div>
+
+        </div>
+
+        <div ref={messagesContainerRef} className="flex-1 overflow-auto scroll-smooth">
+          <div className="p-6 max-w-3xl mx-auto w-full pb-48 pt-4">
+            {activeTab === 'chat' ? (
+              <>
+                {messages.length > 0 && (
+                  <section className="mb-4 space-y-4">
+                    {[...messages].map((m) => {
+                      const isUser = m.role === 'user';
+                      return (
+                        <div
+                          key={m.id}
+                          className="flex justify-center"
+                        >
+                          <div
+                            className={`${isUser ? 'bg-blue-50 border-blue-200 text-blue-800' : 'bg-white border-gray-200 text-black'} w-full max-w-2xl rounded-xl px-4 py-3 text-sm border ${m.pending ? 'opacity-70 italic' : ''}`}
+                          >
+                            <div className="text-xs font-medium text-gray-500 mb-2">
+                              {isUser ? 'You' : 'ShipSense Response'}
+                            </div>
+                            {isUser ? <div>{m.content}</div> : renderAssistant(m.content)}
+                          </div>
                         </div>
-                        {m.role === 'assistant' ? renderAssistant(m.content) : <div>{m.content}</div>}
-                      </div>
-                    </div>
-                  ))}
+                      );
+                    })}
+                  </section>
+                )}
+              </>
+            ) : (
+              <>
+                <section className="my-2">
+                  <h2 className="text-lg font-semibold mb-2 text-center">Crawl URLs (docs)</h2>
+                  <UrlCrawler />
                 </section>
-              )}
-            </>
-          ) : (
-            <>
-              <section className="my-2">
-                <h2 className="text-lg font-semibold mb-2">Crawl URLs (docs)</h2>
-                <UrlCrawler />
-              </section>
-              <section className="my-8">
-                <h2 className="text-lg font-semibold mb-2">Ingest GitHub Repo</h2>
-                <GitHubIngest />
-              </section>
-            </>
-          )}
+                <section className="my-8">
+                  <h2 className="text-lg font-semibold mb-2 text-center">Ingest GitHub Repo</h2>
+                  <GitHubIngest />
+                </section>
+              </>
+            )}
+            <div ref={bottomRef} />
+          </div>
         </div>
-      </div>
-
-      {/* Sticky bottom input bar */}
-      <div className="fixed bottom-0 left-0 right-0 border-t bg-white">
-        <div className="p-3 max-w-3xl mx-auto w-full">
-          <input ref={fileInputRef} type="file" multiple accept=".sh,.tf,.yaml,.yml,.groovy" onChange={onUpload} className="hidden" />
-          <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); send(); }}>
-            <button
-              className="border rounded px-3 py-2"
-              type="button"
-              aria-label="Attach files"
-              title="Attach files"
-              onClick={() => fileInputRef.current?.click()}
-            >
-              📎 Attach
-            </button>
-            <input
-              className="flex-1 border rounded px-3 py-2"
-              placeholder={"Ask a DevOps question, request a diagram, or ask to create Ansible playbooks/Terraform configs (e.g., 'Create a Jenkins pipeline diagram' or 'Help me create an Ansible playbook for web server setup')"}
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-            />
-            <button type="submit" className="bg-black text-white px-4 py-2 rounded">
-              Send
-            </button>
-          </form>
+        {/* Sticky bottom input bar inside content column */}
+        <div className="sticky bottom-0 left-0 right-0 border-t bg-white">
+          <div className="p-3 max-w-3xl mx-auto w-full">
+            <input ref={fileInputRef} type="file" multiple accept=".sh,.tf,.yaml,.yml,.groovy" onChange={onUpload} className="hidden" />
+            <form className="flex gap-2 justify-center" onSubmit={(e) => { e.preventDefault(); send(); }}>
+              <button
+                className="border rounded px-3 py-2"
+                type="button"
+                aria-label="Attach files"
+                title="Attach files"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                📎 Attach
+              </button>
+              <input
+                className="flex-1 border rounded px-3 py-2 max-w-2xl"
+                placeholder={"Ask a DevOps question, request a diagram, or ask to create Ansible playbooks/Terraform configs (e.g., 'Create a Jenkins pipeline diagram' or 'Help me create an Ansible playbook for web server setup')"}
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+              />
+              <button type="submit" className="bg-black text-white px-4 py-2 rounded">
+                Send
+              </button>
+            </form>
+          </div>
         </div>
       </div>
     </main>
