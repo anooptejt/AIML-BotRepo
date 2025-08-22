@@ -464,3 +464,41 @@ Focus on technical implementation and infrastructure as code best practices.
 @app.get("/")
 def root():
     return {"status": "ok", "service": "gemini-devops-bot"}
+
+
+# --- Spinnaker Pipeline Generator ---
+class SpinnakerGenerateIn(BaseModel):
+    prompt: str
+    model: Optional[str] = "gemini-2.5-flash"
+    temperature: Optional[float] = 0.2
+    max_output_tokens: Optional[int] = 4096
+
+
+SPINNAKER_SYSTEM_PROMPT = (
+    "You are a Spinnaker expert. Generate complete Spinnaker pipeline JSON for the requested scenario. "
+    "Use valid stage types (manualJudgment, bakeManifest, deployManifest, runJobManifest, webhook, canary, etc.) and proper refs. "
+    "Prefer parameters where reasonable. Return only JSON (no commentary)."
+)
+
+
+@app.post("/spinnaker-generate")
+def generate_spinnaker_pipeline(inp: SpinnakerGenerateIn):
+    if not is_allowed(inp.prompt):
+        return {"output": "Sorry, I can only assist with DevOps/CI/CD topics.", "tokens": {"input": 0, "output": 0, "total": 0}}
+
+    try:
+        model = genai.GenerativeModel(inp.model, system_instruction=SPINNAKER_SYSTEM_PROMPT)
+        prompt = (
+            "Generate a Spinnaker pipeline JSON for the following request.\n"
+            f"Requirements: {inp.prompt}\n"
+            "Return only JSON."
+        )
+        resp = model.generate_content(
+            prompt,
+            generation_config={"temperature": inp.temperature, "max_output_tokens": inp.max_output_tokens},
+        )
+        output_text = resp.text if hasattr(resp, "text") and resp.text else str(resp)
+    except Exception as e:
+        output_text = f"Error generating Spinnaker pipeline: {str(e)}"
+
+    return {"output": output_text, "tokens": {"input": 0, "output": 0, "total": 0}}

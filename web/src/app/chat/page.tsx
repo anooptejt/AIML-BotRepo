@@ -231,6 +231,13 @@ export default function ChatPage() {
     return ["diagram", "mermaid", "flowchart", "sequence diagram"].some((k) => t.includes(k));
   }
 
+  function wantsSpinnakerPipeline(text: string): boolean {
+    const t = text.toLowerCase();
+    const hasSpin = t.includes('spinnaker');
+    const pipelineHints = ['pipeline', 'json', 'deploy', 'deployment', 'manual judgment', 'manual judgement'];
+    return hasSpin && pipelineHints.some((k) => t.includes(k));
+  }
+
   async function send() {
     if (!message.trim()) return;
     const pendingId = "pending-" + Date.now().toString(36);
@@ -270,6 +277,27 @@ export default function ChatPage() {
       setMessages((prev) => prev.map((m) => m.id === pendingId ? { ...m, content: output, pending: false } : m));
       updateActiveConversationMessages((prev) => prev.map((m) => m.id === pendingId ? { ...m, content: output, pending: false } : m));
       return;
+    }
+
+    // Spinnaker pipeline generation
+    if (wantsSpinnakerPipeline(userMessage)) {
+      try {
+        const res = await fetch('/api/spinnaker-generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt: userMessage })
+        });
+        const data = await res.json();
+        if (data?.output) {
+          setAnswer(data.output);
+          setSources([]);
+          setTokens(null);
+          setMessages((prev) => prev.map((m) => m.id === pendingId ? { ...m, content: data.output, pending: false } : m));
+          return;
+        }
+      } catch (e) {
+        // fall through to search/chat
+      }
     }
 
     // Check for Ansible playbook generation requests

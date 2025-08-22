@@ -40,4 +40,5 @@ export const CORE_GH_REPOS: string[] = [
   "argoproj/argo-rollouts",
   "hashicorp/terraform",
   "ansible/ansible",
+  "spinnaker/spinnaker",
 ];

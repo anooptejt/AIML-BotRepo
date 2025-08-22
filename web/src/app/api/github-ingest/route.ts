@@ -3,7 +3,13 @@ import { fetchRepoTree, fetchFileContent } from "@/lib/github";
 import { chunkText, embedText } from "@/lib/embeddings";
 import { getIndex } from "@/lib/pinecone";
 
-const ALLOWED_EXT = new Set(["md", "yaml", "yml", "json", "groovy", "tf", "sh", "py", "go", "ts", "js"]);
+const ALLOWED_EXT = new Set([
+  "md", "adoc", // docs
+  "yaml", "yml", "json",
+  "groovy", "java", "kt", // Spinnaker languages
+  "gradle", // build files
+  "tf", "sh", "py", "go", "ts", "js"
+]);
 
 export async function POST(req: NextRequest) {
   const { repo, ref = "HEAD", maxFiles = 500 } = await req.json();
