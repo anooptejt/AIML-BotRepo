@@ -19,8 +19,12 @@ export async function POST(req: NextRequest) {
     .join("\n");
 
   const gm = getGemini(model);
+  const isCanI = /^\s*can\s+i\b/i.test(query);
+  const instruction = isCanI
+    ? `Using the following code context, answer decisively in structured bullet points: Can I ...? Include: feasibility, prerequisites, exact steps/commands, risks, and alternatives.`
+    : `Using the following code context, answer as structured bullet points with headings and numbered steps where appropriate. Keep it concise and scannable.`;
   const result = await gm.generateContent({
-    contents: [{ role: "user", parts: [{ text: `Using the following code context, answer: ${query}\n\n${context}` }]}],
+    contents: [{ role: "user", parts: [{ text: `${instruction}\n\nQuestion: ${query}\n\nContext:\n${context}` }]}],
     generationConfig: { temperature: 0.3, topP: 0.9, maxOutputTokens: 1024 },
   });
   const resp = result.response as unknown as { text?: string | (() => string) };

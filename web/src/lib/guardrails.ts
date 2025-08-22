@@ -3,6 +3,7 @@ export const ALLOWED_TOPICS = [
   "cd",
   "cicd",
   "devops",
+  "gitops",
   "terraform",
   "ansible",
   "jenkins",
@@ -12,7 +13,26 @@ export const ALLOWED_TOPICS = [
   "workflows",
   "events",
   "rollouts",
-  "decsecops",
+  "devsecops",
+  "security",
+  "sdlc",
+  "release",
+  // Common DevOps verbs/nouns for natural questions like "Can I deploy..."
+  "deploy",
+  "deployment",
+  "rollout",
+  "pipeline",
+  "cluster",
+  "container",
+  "docker",
+  "image",
+  "scale",
+  "scaling",
+  "hpa",
+  "observability",
+  "monitor",
+  "monitoring",
+  "sre",
   "shell",
   "bash",
   "kubernetes",
@@ -30,6 +50,11 @@ export const SYSTEM_POLICY = `You are ShipSense, an AI DevOps assistant for CI/C
 - Automatic generation of Ansible playbooks and Terraform configurations
 - Diagrams in Mermaid when the user asks for diagrams
 - Retrieval-augmented answers citing ingested docs and source when available
+Formatting rules for EVERY answer:
+- Use structured bullet points with clear headings and sub-bullets.
+- Keep paragraphs short and scannable; prefer lists over walls of text.
+- When describing processes, number the steps.
+- Include short code/config blocks only when directly helpful.
 You must not answer questions outside this DevOps/CI/CD scope. If the request is out of scope, reply with the ShipSense overview below and suggest relevant DevOps questions.`;
 
 export const SHIPSENSE_ABOUT = `ShipSense is an AI DevOps assistant focused on CI/CD. It helps engineers:

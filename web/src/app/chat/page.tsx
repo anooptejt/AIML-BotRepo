@@ -9,6 +9,7 @@ import type { HTMLAttributes } from "react";
 type IngestItem = { name: string; summary: string };
 
 type Match = { id?: string; score?: number; metadata?: { filename?: string; chunk?: number } };
+type ChatMessage = { id: string; role: "user" | "assistant"; content: string; pending?: boolean };
 
 function Mermaid({ code }: { code: string }) {
   const [html, setHtml] = useState("");
@@ -107,6 +108,7 @@ export default function ChatPage() {
   const [sources, setSources] = useState<Match[]>([]);
   const [validationStatus, setValidationStatus] = useState<string>("");
   const [activeTab, setActiveTab] = useState<"chat" | "ingest">("chat");
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // One-time silent bootstrap of built-in sources per browser
@@ -137,25 +139,36 @@ export default function ChatPage() {
 
   async function send() {
     if (!message.trim()) return;
+    const pendingId = "pending-" + Date.now().toString(36);
+    // Optimistic render: show user message immediately and a pending assistant indicator
+    setMessages((prev) => [
+      { id: pendingId + "-user", role: "user", content: message },
+      { id: pendingId, role: "assistant", content: "Generating...", pending: true },
+      ...prev,
+    ]);
     setAnswer("");
     setSources([]);
+    const userMessage = message;
+    setMessage("");
 
     // If the user asks for a diagram, call the diagram endpoint.
-    if (wantsDiagram(message)) {
-      const res = await fetch("/api/diagram", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt: message }) });
+    if (wantsDiagram(userMessage)) {
+      const res = await fetch("/api/diagram", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt: userMessage }) });
       const data = await res.json();
-      setAnswer(data.output || "");
+      const output = data.output || "";
+      setAnswer(output);
       setTokens(null);
+      setMessages((prev) => prev.map((m) => m.id === pendingId ? { ...m, content: output, pending: false } : m));
       return;
     }
 
     // Check for Ansible playbook generation requests
-    if (message.toLowerCase().includes('ansible') && (message.toLowerCase().includes('create') || message.toLowerCase().includes('generate') || message.toLowerCase().includes('playbook'))) {
+    if (userMessage.toLowerCase().includes('ansible') && (userMessage.toLowerCase().includes('create') || userMessage.toLowerCase().includes('generate') || userMessage.toLowerCase().includes('playbook'))) {
       try {
         const res = await fetch("/api/ansible-generate", { 
           method: "POST", 
           headers: { "Content-Type": "application/json" }, 
-          body: JSON.stringify({ prompt: message }) 
+          body: JSON.stringify({ prompt: userMessage }) 
         });
         const data = await res.json();
         if (data?.output) {
@@ -163,6 +176,7 @@ export default function ChatPage() {
           setValidationStatus(data.yaml_validation || "");
           setSources([]);
           setTokens(null);
+          setMessages((prev) => prev.map((m) => m.id === pendingId ? { ...m, content: data.output, pending: false } : m));
           return;
         }
       } catch (error) {
@@ -171,12 +185,12 @@ export default function ChatPage() {
     }
 
     // Check for Terraform configuration generation requests
-    if (message.toLowerCase().includes('terraform') && (message.toLowerCase().includes('create') || message.toLowerCase().includes('generate') || message.toLowerCase().includes('config'))) {
+    if (userMessage.toLowerCase().includes('terraform') && (userMessage.toLowerCase().includes('create') || userMessage.toLowerCase().includes('generate') || userMessage.toLowerCase().includes('config'))) {
       try {
         const res = await fetch("/api/terraform-generate", { 
           method: "POST", 
           headers: { "Content-Type": "application/json" }, 
-          body: JSON.stringify({ prompt: message }) 
+          body: JSON.stringify({ prompt: userMessage }) 
         });
         const data = await res.json();
         if (data?.output) {
@@ -184,6 +198,7 @@ export default function ChatPage() {
           setValidationStatus(data.hcl_validation || "");
           setSources([]);
           setTokens(null);
+          setMessages((prev) => prev.map((m) => m.id === pendingId ? { ...m, content: data.output, pending: false } : m));
           return;
         }
       } catch (error) {
@@ -193,21 +208,24 @@ export default function ChatPage() {
 
     // Default path: vector search with Gemini answer and citations
     try {
-      const res = await fetch("/api/search", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query: message, topK: 5, answer: true }) });
+      const res = await fetch("/api/search", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query: userMessage, topK: 5, answer: true }) });
       const data = await res.json();
       if (data?.answer) {
         setAnswer(data.answer);
         setSources((data.matches || []) as Match[]);
         setTokens(null);
+        setMessages((prev) => prev.map((m) => m.id === pendingId ? { ...m, content: data.answer, pending: false } : m));
         return;
       }
     } catch {}
 
     // Fallback to plain chat endpoint
-    const res = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message }) });
+    const res = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: userMessage }) });
     const data = await res.json();
-    setAnswer(data.output || "");
+    const output = data.output || "";
+    setAnswer(output);
     setTokens(data.tokens || null);
+    setMessages((prev) => prev.map((m) => m.id === pendingId ? { ...m, content: output, pending: false } : m));
   }
 
   async function onUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -222,6 +240,48 @@ export default function ChatPage() {
     setIngestResult(summaries);
     // Reset file input so the same files can be re-uploaded later if needed
     if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  function renderAssistant(text: string) {
+    const formatted = preprocessAnswer(text || "");
+    const blocks: string[] = [];
+    const transformed = formatted.replace(/```mermaid([\s\S]*?)```/g, (_m, g1) => {
+      blocks.push(g1.trim());
+      return "\n[Mermaid Diagram]\n";
+    });
+    return (
+      <div>
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          components={{
+            code({ inline, className, children, ...props }: { inline?: boolean; className?: string; children?: React.ReactNode } & HTMLAttributes<HTMLElement>) {
+              const text = String(children ?? "");
+              const isShort = text.trim().split("\n").length === 1 && text.trim().length <= 50;
+              if (inline || isShort) {
+                return <code className="bg-gray-100 rounded px-1 py-0.5" {...props}>{text}</code>;
+              }
+              const lang = getLanguage(className) || "text";
+              return (
+                <div className="rounded border border-gray-200 overflow-hidden mb-4">
+                  <div className="flex items-center justify-between bg-gray-50 px-3 py-1.5 border-b border-gray-200 text-xs text-gray-600">
+                    <span>{lang}</span>
+                    <CopyButton text={text} />
+                  </div>
+                  <pre className="bg-white text-gray-900 text-sm p-3 overflow-x-auto"><code className={className} {...props}>{text}</code></pre>
+                </div>
+              );
+            },
+          }}
+        >
+          {transformed}
+        </ReactMarkdown>
+        {blocks.map((code, i) => (
+          <div key={i} className="my-4 border rounded p-3 overflow-x-auto">
+            <Mermaid code={code} />
+          </div>
+        ))}
+      </div>
+    );
   }
 
   const { md, mermaidBlocks } = useMemo(() => {
@@ -284,71 +344,27 @@ export default function ChatPage() {
         <div className="p-6 max-w-3xl mx-auto w-full pb-40">
           {activeTab === 'chat' ? (
             <>
-              {tokens && (
-                <div className="text-sm text-gray-600 mb-2">Tokens: in {tokens.input} / out {tokens.output} / total {tokens.total}</div>
-              )}
-
-              {answer && <h2 className="text-lg font-semibold mb-2">Answer</h2>}
-              <article className="prose">
-                <ReactMarkdown
-                  remarkPlugins={[remarkGfm]}
-                  components={{
-                    code({ inline, className, children, ...props }: { inline?: boolean; className?: string; children?: React.ReactNode } & HTMLAttributes<HTMLElement>) {
-                      const text = String(children ?? "");
-                      const isShort = text.trim().split("\n").length === 1 && text.trim().length <= 50;
-                      if (inline || isShort) {
-                        return <code className="bg-gray-100 rounded px-1 py-0.5" {...props}>{text}</code>;
-                      }
-                      const lang = getLanguage(className) || "text";
-                      return (
-                        <div className="rounded border border-gray-200 overflow-hidden mb-4">
-                          <div className="flex items-center justify-between bg-gray-50 px-3 py-1.5 border-b border-gray-200 text-xs text-gray-600">
-                            <span>{lang}</span>
-                            <CopyButton text={text} />
-                          </div>
-                          <pre className="bg-white text-gray-900 text-sm p-3 overflow-x-auto"><code className={className} {...props}>{text}</code></pre>
+              {messages.length > 0 && (
+                <section className="mb-4 space-y-2">
+                  {messages.map((m) => (
+                    <div
+                      key={m.id}
+                      className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                    >
+                      <div
+                        className={`max-w-[85%] rounded-xl px-3 py-2 text-sm border ${
+                          m.role === 'user'
+                            ? 'bg-blue-50 border-blue-200 text-blue-800'
+                            : 'bg-white border-gray-200 text-black'
+                        } ${m.pending ? 'opacity-70 italic' : ''}`}
+                      >
+                        <div className="text-xs font-medium text-gray-500 mb-1">
+                          {m.role === 'user' ? 'You' : 'ShipSense Response'}
                         </div>
-                      );
-                    },
-                  }}
-                >
-                  {md}
-                </ReactMarkdown>
-              </article>
-
-              {validationStatus && (
-                <section className="my-6">
-                  <h2 className="text-lg font-semibold mb-2">Validation Status</h2>
-                  <div className={`text-sm p-3 rounded border ${
-                    validationStatus.includes('✅') ? 'bg-green-50 border-green-200 text-green-800' : 
-                    validationStatus.includes('⚠️') ? 'bg-yellow-50 border-yellow-200 text-yellow-800' : 
-                    'bg-gray-50 border-gray-200 text-gray-800'
-                  }`}>
-                    {validationStatus}
-                  </div>
-                </section>
-              )}
-              {mermaidBlocks.map((code, i) => (
-                <div key={i} className="my-4 border rounded p-3 overflow-x-auto">
-                  <Mermaid code={code} />
-                </div>
-              ))}
-
-              {sources.length > 0 && (
-                <section className="my-6">
-                  <h2 className="text-lg font-semibold mb-2">Sources</h2>
-                  <ul className="text-sm list-disc pl-5">
-                    {sources.map((m, i) => (
-                      <li key={i}>{m.metadata?.filename} (chunk {m.metadata?.chunk}) — score {m.score?.toFixed(3)}</li>
-                    ))}
-                  </ul>
-                </section>
-              )}
-
-              {ingestResult && (
-                <section className="my-6">
-                  <h2 className="text-lg font-semibold mb-2">Ingest summaries</h2>
-                  <pre className="whitespace-pre-wrap text-sm bg-gray-50 border rounded p-3">{ingestResult}</pre>
+                        {m.role === 'assistant' ? renderAssistant(m.content) : <div>{m.content}</div>}
+                      </div>
+                    </div>
+                  ))}
                 </section>
               )}
             </>

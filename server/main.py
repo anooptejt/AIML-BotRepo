@@ -7,14 +7,19 @@ import yaml
 import json
 
 ALLOWED = {
-    "ci","cd","cicd","devops","terraform","ansible","jenkins","spinnaker",
-    "argo","argocd","workflows","rollouts","decsecops","shell","bash","kubernetes","helm"
+    "ci","cd","cicd","devops","devsecops","security","sdlc","release","terraform","ansible","jenkins","spinnaker",
+    "argo","argocd","workflows","rollouts","shell","bash","kubernetes","helm","process","processes"
 }
 
 SYSTEM_POLICY = (
     "You are a Responsible DevOps assistant. Only answer questions about CI/CD, DevOps, Terraform, Ansible, "
-    "Jenkins, Spinnaker, Argo (CD/Workflows/Rollouts), DecSecOps, and Shell scripting. "
-    "If the user asks anything outside these topics, politely refuse and suggest DevOps topics."
+    "Jenkins, Spinnaker, Argo (CD/Workflows/Rollouts), DevSecOps, and Shell scripting. "
+    "If the user asks anything outside these topics, politely refuse and suggest DevOps topics.\n"
+    "Formatting rules for EVERY answer: \n"
+    "- Use structured bullet points with clear headings and sub-bullets.\n"
+    "- Keep paragraphs short and scannable; prefer lists.\n"
+    "- Number process steps when appropriate.\n"
+    "- Include short code/config blocks only when directly helpful."
 )
 
 # Ansible-specific system prompt
